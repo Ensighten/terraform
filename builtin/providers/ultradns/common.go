@@ -1,6 +1,7 @@
 package ultradns
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/Ensighten/udnssdk"
@@ -43,4 +44,14 @@ func (r rRSetResource) RRSet() udnssdk.RRSet {
 
 func (r rRSetResource) ID() string {
 	return fmt.Sprintf("%s.%s", r.OwnerName, r.Zone)
+}
+
+// TODO: move this to udnssdk (r *RRSetSet) SetProfile(p interface{}) error
+func (r rRSetResource) SetProfile(p interface{}) error {
+	s, err := json.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("ultradns rRSetResource.SetProfile(): profile marshal error: %+v", err)
+	}
+	r.Profile = &udnssdk.StringProfile{Profile: string(s)}
+	return nil
 }
