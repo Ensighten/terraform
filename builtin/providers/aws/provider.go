@@ -1,16 +1,10 @@
 package aws
 
 import (
-	"net"
-	"sync"
-	"time"
-
 	"github.com/hashicorp/terraform/helper/hashcode"
+	"github.com/hashicorp/terraform/helper/mutexkv"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
-
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 )
 
 // Provider returns a terraform.ResourceProvider.
@@ -18,95 +12,27 @@ func Provider() terraform.ResourceProvider {
 	// TODO: Move the validation to this, requires conditional schemas
 	// TODO: Move the configuration to this, requires validation
 
-	// These variables are closed within the `getCreds` function below.
-	// This function is responsible for reading credentials from the
-	// environment in the case that they're not explicitly specified
-	// in the Terraform configuration.
-	//
-	// By using the getCreds function here instead of making the default
-	// empty, we avoid asking for input on credentials if they're available
-	// in the environment.
-	var credVal credentials.Value
-	var credErr error
-	var once sync.Once
-	getCreds := func() {
-		// Build the list of providers to look for creds in
-		providers := []credentials.Provider{
-			&credentials.EnvProvider{},
-			&credentials.SharedCredentialsProvider{},
-		}
-
-		// We only look in the EC2 metadata API if we can connect
-		// to the metadata service within a reasonable amount of time
-		conn, err := net.DialTimeout("tcp", "169.254.169.254:80", 100*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			providers = append(providers, &ec2rolecreds.EC2RoleProvider{})
-		}
-
-		credVal, credErr = credentials.NewChainCredentials(providers).Get()
-
-		// If we didn't successfully find any credentials, just
-		// set the error to nil.
-		if credErr == credentials.ErrNoValidProvidersFoundInChain {
-			credErr = nil
-		}
-	}
-
-	// getCredDefault is a function used by DefaultFunc below to
-	// get the default value for various parts of the credentials.
-	// This function properly handles loading the credentials, checking
-	// for errors, etc.
-	getCredDefault := func(def interface{}, f func() string) (interface{}, error) {
-		once.Do(getCreds)
-
-		// If there was an error, that is always first
-		if credErr != nil {
-			return nil, credErr
-		}
-
-		// If the value is empty string, return nil (not set)
-		val := f()
-		if val == "" {
-			return def, nil
-		}
-
-		return val, nil
-	}
-
 	// The actual provider
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
 			"access_key": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				DefaultFunc: func() (interface{}, error) {
-					return getCredDefault(nil, func() string {
-						return credVal.AccessKeyID
-					})
-				},
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
 				Description: descriptions["access_key"],
 			},
 
 			"secret_key": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				DefaultFunc: func() (interface{}, error) {
-					return getCredDefault(nil, func() string {
-						return credVal.SecretAccessKey
-					})
-				},
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
 				Description: descriptions["secret_key"],
 			},
 
 			"token": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				DefaultFunc: func() (interface{}, error) {
-					return getCredDefault("", func() string {
-						return credVal.SessionToken
-					})
-				},
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
 				Description: descriptions["token"],
 			},
 
@@ -171,6 +97,7 @@ func Provider() terraform.ResourceProvider {
 			"aws_autoscaling_group":                resourceAwsAutoscalingGroup(),
 			"aws_autoscaling_notification":         resourceAwsAutoscalingNotification(),
 			"aws_autoscaling_policy":               resourceAwsAutoscalingPolicy(),
+			"aws_autoscaling_schedule":             resourceAwsAutoscalingSchedule(),
 			"aws_cloudformation_stack":             resourceAwsCloudFormationStack(),
 			"aws_cloudtrail":                       resourceAwsCloudTrail(),
 			"aws_cloudwatch_log_group":             resourceAwsCloudWatchLogGroup(),
@@ -187,6 +114,8 @@ func Provider() terraform.ResourceProvider {
 			"aws_directory_service_directory":      resourceAwsDirectoryServiceDirectory(),
 			"aws_dynamodb_table":                   resourceAwsDynamoDbTable(),
 			"aws_ebs_volume":                       resourceAwsEbsVolume(),
+			"aws_ecr_repository":                   resourceAwsEcrRepository(),
+			"aws_ecr_repository_policy":            resourceAwsEcrRepositoryPolicy(),
 			"aws_ecs_cluster":                      resourceAwsEcsCluster(),
 			"aws_ecs_service":                      resourceAwsEcsService(),
 			"aws_ecs_task_definition":              resourceAwsEcsTaskDefinition(),
@@ -220,10 +149,13 @@ func Provider() terraform.ResourceProvider {
 			"aws_kinesis_firehose_delivery_stream": resourceAwsKinesisFirehoseDeliveryStream(),
 			"aws_kinesis_stream":                   resourceAwsKinesisStream(),
 			"aws_lambda_function":                  resourceAwsLambdaFunction(),
+			"aws_lambda_event_source_mapping":      resourceAwsLambdaEventSourceMapping(),
 			"aws_launch_configuration":             resourceAwsLaunchConfiguration(),
 			"aws_lb_cookie_stickiness_policy":      resourceAwsLBCookieStickinessPolicy(),
 			"aws_main_route_table_association":     resourceAwsMainRouteTableAssociation(),
+			"aws_nat_gateway":                      resourceAwsNatGateway(),
 			"aws_network_acl":                      resourceAwsNetworkAcl(),
+			"aws_network_acl_rule":                 resourceAwsNetworkAclRule(),
 			"aws_network_interface":                resourceAwsNetworkInterface(),
 			"aws_opsworks_stack":                   resourceAwsOpsworksStack(),
 			"aws_opsworks_java_app_layer":          resourceAwsOpsworksJavaAppLayer(),
@@ -321,3 +253,6 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 
 	return config.Client()
 }
+
+// This is a global MutexKV for use within this plugin.
+var awsMutexKV = mutexkv.NewMutexKV()

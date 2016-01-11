@@ -31,6 +31,11 @@ func resourceAwsDbInstance() *schema.Resource {
 				ForceNew: true,
 			},
 
+			"arn": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+
 			"username": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -146,7 +151,7 @@ func resourceAwsDbInstance() *schema.Resource {
 			"publicly_accessible": &schema.Schema{
 				Type:     schema.TypeBool,
 				Optional: true,
-				ForceNew: true,
+				Computed: true,
 			},
 
 			"vpc_security_group_ids": &schema.Schema{
@@ -181,6 +186,12 @@ func resourceAwsDbInstance() *schema.Resource {
 					}
 					return
 				},
+			},
+
+			"skip_final_snapshot": &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
 			},
 
 			"copy_tags_to_snapshot": &schema.Schema{
@@ -285,9 +296,19 @@ func resourceAwsDbInstanceCreate(d *schema.ResourceData, meta interface{}) error
 			opts.AvailabilityZone = aws.String(attr.(string))
 		}
 
+		if attr, ok := d.GetOk("storage_type"); ok {
+			opts.StorageType = aws.String(attr.(string))
+		}
+
 		if attr, ok := d.GetOk("publicly_accessible"); ok {
 			opts.PubliclyAccessible = aws.Bool(attr.(bool))
 		}
+
+		if attr, ok := d.GetOk("db_subnet_group_name"); ok {
+			opts.DBSubnetGroupName = aws.String(attr.(string))
+		}
+
+		log.Printf("[DEBUG] DB Instance Replica create configuration: %#v", opts)
 		_, err := conn.CreateDBInstanceReadReplica(&opts)
 		if err != nil {
 			return fmt.Errorf("Error creating DB Instance: %s", err)
@@ -362,7 +383,8 @@ func resourceAwsDbInstanceCreate(d *schema.ResourceData, meta interface{}) error
 				"[INFO] Waiting for DB Instance to be available")
 
 			stateConf := &resource.StateChangeConf{
-				Pending:    []string{"creating", "backing-up", "modifying"},
+				Pending: []string{"creating", "backing-up", "modifying", "resetting-master-credentials",
+					"maintenance", "renaming", "rebooting", "upgrading"},
 				Target:     "available",
 				Refresh:    resourceAwsDbInstanceStateRefreshFunc(d, meta),
 				Timeout:    40 * time.Minute,
@@ -473,7 +495,8 @@ func resourceAwsDbInstanceCreate(d *schema.ResourceData, meta interface{}) error
 		"[INFO] Waiting for DB Instance to be available")
 
 	stateConf := &resource.StateChangeConf{
-		Pending:    []string{"creating", "backing-up", "modifying"},
+		Pending: []string{"creating", "backing-up", "modifying", "resetting-master-credentials",
+			"maintenance", "renaming", "rebooting", "upgrading"},
 		Target:     "available",
 		Refresh:    resourceAwsDbInstanceStateRefreshFunc(d, meta),
 		Timeout:    40 * time.Minute,
@@ -548,6 +571,7 @@ func resourceAwsDbInstanceRead(d *schema.ResourceData, meta interface{}) error {
 		}
 		log.Printf("[DEBUG] Error building ARN for DB Instance, not setting Tags for DB %s", name)
 	} else {
+		d.Set("arn", arn)
 		resp, err := conn.ListTagsForResource(&rds.ListTagsForResourceInput{
 			ResourceName: aws.String(arn),
 		})
@@ -603,11 +627,15 @@ func resourceAwsDbInstanceDelete(d *schema.ResourceData, meta interface{}) error
 
 	opts := rds.DeleteDBInstanceInput{DBInstanceIdentifier: aws.String(d.Id())}
 
-	finalSnapshot := d.Get("final_snapshot_identifier").(string)
-	if finalSnapshot == "" {
-		opts.SkipFinalSnapshot = aws.Bool(true)
-	} else {
-		opts.FinalDBSnapshotIdentifier = aws.String(finalSnapshot)
+	skipFinalSnapshot := d.Get("skip_final_snapshot").(bool)
+	opts.SkipFinalSnapshot = aws.Bool(skipFinalSnapshot)
+
+	if !skipFinalSnapshot {
+		if name, present := d.GetOk("final_snapshot_identifier"); present {
+			opts.FinalDBSnapshotIdentifier = aws.String(name.(string))
+		} else {
+			return fmt.Errorf("DB Instance FinalSnapshotIdentifier is required when a final snapshot is required")
+		}
 	}
 
 	log.Printf("[DEBUG] DB Instance destroy configuration: %v", opts)
@@ -703,6 +731,11 @@ func resourceAwsDbInstanceUpdate(d *schema.ResourceData, meta interface{}) error
 	if d.HasChange("multi_az") {
 		d.SetPartial("multi_az")
 		req.MultiAZ = aws.Bool(d.Get("multi_az").(bool))
+		requestUpdate = true
+	}
+	if d.HasChange("publicly_accessible") {
+		d.SetPartial("publicly_accessible")
+		req.PubliclyAccessible = aws.Bool(d.Get("publicly_accessible").(bool))
 		requestUpdate = true
 	}
 	if d.HasChange("storage_type") {

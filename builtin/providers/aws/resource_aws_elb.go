@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -256,8 +256,23 @@ func resourceAwsElbCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	log.Printf("[DEBUG] ELB create configuration: %#v", elbOpts)
-	if _, err := elbconn.CreateLoadBalancer(elbOpts); err != nil {
-		return fmt.Errorf("Error creating ELB: %s", err)
+	err = resource.Retry(1*time.Minute, func() error {
+		_, err := elbconn.CreateLoadBalancer(elbOpts)
+
+		if err != nil {
+			if awsErr, ok := err.(awserr.Error); ok {
+				// Check for IAM SSL Cert error, eventual consistancy issue
+				if awsErr.Code() == "CertificateNotFound" {
+					return fmt.Errorf("[WARN] Error creating ELB Listener with SSL Cert, retrying: %s", err)
+				}
+			}
+			return resource.RetryError{Err: err}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	// Assign the elb's unique identifier for use later
@@ -334,12 +349,12 @@ func resourceAwsElbRead(d *schema.ResourceData, meta interface{}) error {
 		var elbVpc string
 		if lb.VPCId != nil {
 			elbVpc = *lb.VPCId
-		}
-		sgId, err := sourceSGIdByName(meta, *lb.SourceSecurityGroup.GroupName, elbVpc)
-		if err != nil {
-			return fmt.Errorf("[WARN] Error looking up ELB Security Group ID: %s", err)
-		} else {
-			d.Set("source_security_group_id", sgId)
+			sgId, err := sourceSGIdByName(meta, *lb.SourceSecurityGroup.GroupName, elbVpc)
+			if err != nil {
+				return fmt.Errorf("[WARN] Error looking up ELB Security Group ID: %s", err)
+			} else {
+				d.Set("source_security_group_id", sgId)
+			}
 		}
 	}
 	d.Set("subnets", lb.Subnets)
@@ -394,6 +409,7 @@ func resourceAwsElbUpdate(d *schema.ResourceData, meta interface{}) error {
 				LoadBalancerPorts: ports,
 			}
 
+			log.Printf("[DEBUG] ELB Delete Listeners opts: %s", deleteListenersOpts)
 			_, err := elbconn.DeleteLoadBalancerListeners(deleteListenersOpts)
 			if err != nil {
 				return fmt.Errorf("Failure removing outdated ELB listeners: %s", err)
@@ -406,6 +422,7 @@ func resourceAwsElbUpdate(d *schema.ResourceData, meta interface{}) error {
 				Listeners:        add,
 			}
 
+			log.Printf("[DEBUG] ELB Create Listeners opts: %s", createListenersOpts)
 			_, err := elbconn.CreateLoadBalancerListeners(createListenersOpts)
 			if err != nil {
 				return fmt.Errorf("Failure adding new or updated ELB listeners: %s", err)
@@ -653,29 +670,6 @@ func resourceAwsElbListenerHash(v interface{}) int {
 func isLoadBalancerNotFound(err error) bool {
 	elberr, ok := err.(awserr.Error)
 	return ok && elberr.Code() == "LoadBalancerNotFound"
-}
-
-func validateElbName(v interface{}, k string) (ws []string, errors []error) {
-	value := v.(string)
-	if !regexp.MustCompile(`^[0-9A-Za-z-]+$`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"only alphanumeric characters and hyphens allowed in %q: %q",
-			k, value))
-	}
-	if len(value) > 32 {
-		errors = append(errors, fmt.Errorf(
-			"%q cannot be longer than 32 characters: %q", k, value))
-	}
-	if regexp.MustCompile(`^-`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"%q cannot begin with a hyphen: %q", k, value))
-	}
-	if regexp.MustCompile(`-$`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"%q cannot end with a hyphen: %q", k, value))
-	}
-	return
-
 }
 
 func sourceSGIdByName(meta interface{}, sg, vpcId string) (string, error) {

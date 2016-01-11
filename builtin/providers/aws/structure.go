@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -399,10 +398,16 @@ func flattenEcsContainerDefinitions(definitions []*ecs.ContainerDefinition) (str
 func flattenParameters(list []*rds.Parameter) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(list))
 	for _, i := range list {
-		result = append(result, map[string]interface{}{
-			"name":  strings.ToLower(*i.ParameterName),
-			"value": strings.ToLower(*i.ParameterValue),
-		})
+		if i.ParameterName != nil {
+			r := make(map[string]interface{})
+			r["name"] = strings.ToLower(*i.ParameterName)
+			// Default empty string, guard against nil parameter values
+			r["value"] = ""
+			if i.ParameterValue != nil {
+				r["value"] = strings.ToLower(*i.ParameterValue)
+			}
+			result = append(result, r)
+		}
 	}
 	return result
 }
@@ -500,7 +505,7 @@ func expandResourceRecords(recs []interface{}, typeStr string) []*route53.Resour
 	for _, r := range recs {
 		s := r.(string)
 		switch typeStr {
-		case "TXT":
+		case "TXT", "SPF":
 			str := fmt.Sprintf("\"%s\"", s)
 			records = append(records, &route53.ResourceRecord{Value: aws.String(str)})
 		default:
@@ -508,27 +513,6 @@ func expandResourceRecords(recs []interface{}, typeStr string) []*route53.Resour
 		}
 	}
 	return records
-}
-
-func validateRdsId(v interface{}, k string) (ws []string, errors []error) {
-	value := v.(string)
-	if !regexp.MustCompile(`^[0-9a-z-]+$`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"only lowercase alphanumeric characters and hyphens allowed in %q", k))
-	}
-	if !regexp.MustCompile(`^[a-z]`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"first character of %q must be a letter", k))
-	}
-	if regexp.MustCompile(`--`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"%q cannot contain two consecutive hyphens", k))
-	}
-	if regexp.MustCompile(`-$`).MatchString(value) {
-		errors = append(errors, fmt.Errorf(
-			"%q cannot end with a hyphen", k))
-	}
-	return
 }
 
 func expandESClusterConfig(m map[string]interface{}) *elasticsearch.ElasticsearchClusterConfig {

@@ -3,6 +3,7 @@ package google
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -284,10 +285,12 @@ func getInstance(config *Config, d *schema.ResourceData) (*compute.Instance, err
 		config.Project, d.Get("zone").(string), d.Id()).Do()
 	if err != nil {
 		if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == 404 {
+			log.Printf("[WARN] Removing Instance %q because it's gone", d.Get("name").(string))
 			// The resource doesn't exist anymore
+			id := d.Id()
 			d.SetId("")
 
-			return nil, fmt.Errorf("Resource %s no longer exists", config.Project)
+			return nil, fmt.Errorf("Resource %s no longer exists", id)
 		}
 
 		return nil, fmt.Errorf("Error reading instance: %s", err)
@@ -547,15 +550,20 @@ func resourceComputeInstanceCreate(d *schema.ResourceData, meta interface{}) err
 func resourceComputeInstanceRead(d *schema.ResourceData, meta interface{}) error {
 	config := meta.(*Config)
 
+	id := d.Id()
 	instance, err := getInstance(config, d)
 	if err != nil {
+		if strings.Contains(err.Error(), "no longer exists") {
+			log.Printf("[WARN] Google Compute Instance (%s) not found", id)
+			return nil
+		}
 		return err
 	}
 
 	// Synch metadata
 	md := instance.Metadata
 
-	_md := MetadataFormatSchema(md)
+	_md := MetadataFormatSchema(d.Get("metadata").(map[string]interface{}), md)
 	delete(_md, "startup-script")
 
 	if script, scriptExists := d.GetOk("metadata_startup_script"); scriptExists {
