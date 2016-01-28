@@ -69,6 +69,8 @@ func TestAccUltraDNSRecord_Updated(t *testing.T) {
 						"ultradns_record.foobar", "zone", domain),
 					resource.TestCheckResourceAttr(
 						"ultradns_record.foobar", "rdata.0", "192.168.0.11"),
+					resource.TestCheckResourceAttr(
+						"ultradns_record.foobar", "profile", testProfile),
 				),
 			},
 		},
@@ -144,6 +146,8 @@ func testAccCheckUltraDNSRecordExists(n string, record *udnssdk.RRSet) resource.
 	}
 }
 
+const testProfile = `{"@context": "http://schemas.ultradns.com/RDPool.jsonschema", "order": "ROUND_ROBIN","description": "T. migratorius"}`
+
 const testAccCheckUltraDNSRecordConfig_basic = `
 resource "ultradns_record" "foobar" {
 	zone = "%s"
@@ -162,4 +166,5 @@ resource "ultradns_record" "foobar" {
 	rdata = [ "192.168.0.11" ]
 	type = "A"
 	ttl = 3600
+        profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
 }`

@@ -9,6 +9,174 @@ import (
 	"strings"
 )
 
+func schemaSBPoolProfile() *schema.Schema {
+	return &schema.Schema{
+		Type:          schema.TypeMap,
+		Optional:      true,
+		ConflictsWith: []string{"dirpool_profile", "rdpool_profile", "tcpool_profile"},
+	}
+}
+func schemaDirPoolRDataInfo() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeMap,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"allNonConfigured": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  false,
+				},
+				"geoInfo": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schemaDirPoolGeoInfo(),
+				},
+				"ipInfo": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schemaDirPoolIPInfo(),
+				},
+			},
+		},
+	}
+}
+
+func schemaDirPoolGeoInfo() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeMap,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: false,
+				},
+				"isAccountLevel": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  false,
+				},
+				"codes": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schema.TypeString,
+				},
+			},
+		},
+	}
+}
+func schemaDirPoolIPInfo() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeMap,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: false,
+				},
+				"isAccountLevel": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  false,
+				},
+				"ips": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schemaIPAddrDTO(),
+				},
+			},
+		},
+	}
+}
+func schemaIPAddrDTO() *schema.Schema {
+	return &schema.Schema{
+		Type:          schema.TypeMap,
+		Optional:      true,
+		ConflictsWith: []string{"rdpool_profile", "sbpool_profile", "tcpool_profile"},
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"start": &schema.Schema{
+					Type:          schema.TypeString,
+					Optional:      true,
+					ConflictsWith: []string{"cidr", "address"},
+				},
+				"end": &schema.Schema{
+					Type:          schema.TypeString,
+					Optional:      true,
+					ConflictsWith: []string{"cidr", "address"},
+				},
+				"cidr": &schema.Schema{
+					Type:          schema.TypeString,
+					Optional:      true,
+					ConflictsWith: []string{"start", "end", "address"},
+				},
+				"address": &schema.Schema{
+					Type:          schema.TypeString,
+					Optional:      true,
+					ConflictsWith: []string{"start", "end", "cidr"},
+				},
+			},
+		},
+	}
+}
+
+func schemaDirPoolProfile() *schema.Schema {
+	return &schema.Schema{
+		Type:          schema.TypeMap,
+		Optional:      true,
+		ConflictsWith: []string{"rdpool_profile", "sbpool_profile", "tcpool_profile"},
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"description": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "RD Pool Profile created by Terraform",
+				},
+				"conflictResolve": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "GEO",
+				},
+				"rdataInfo": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schemaDirPoolRDataInfo(),
+				},
+				"noResponse": schemaDirPoolRDataInfo(),
+			},
+		},
+	}
+}
+func schemaTCPoolProfile() *schema.Schema {
+	return &schema.Schema{
+		Type:          schema.TypeMap,
+		Optional:      true,
+		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "rdpool_profile"},
+	}
+}
+func schemaRDPoolProfile() *schema.Schema {
+	return &schema.Schema{
+		Type:          schema.TypeMap,
+		Optional:      true,
+		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "tcpool_profile"},
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"order": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "ROUND_ROBIN",
+				},
+				"description": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "RD Pool Profile created by Terraform",
+				},
+			},
+		},
+	}
+}
 func resourceUltraDNSRecord() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceUltraDNSRecordCreate,
@@ -44,11 +212,14 @@ func resourceUltraDNSRecord() *schema.Resource {
 				Required: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
-
 			"ttl": &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "3600",
+			},
+			"profile": &schema.Schema{
+				Type:     schema.TypeMap,
+				Optional: true,
 			},
 		},
 	}
@@ -68,6 +239,11 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 	newRecord.RData = rdatas
 	ttl := d.Get("ttl").(string)
 	newRecord.TTL, _ = strconv.Atoi(ttl)
+	newProfileStr := d.Get("profile").(string)
+	if newProfileStr != "" {
+		newProfile := &udnssdk.StringProfile{Profile: newProfileStr}
+		newRecord.Profile = newProfile
+	}
 
 	log.Printf("[DEBUG] UltraDNS RRSet create configuration: %#v", newRecord)
 
@@ -86,7 +262,7 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
-	rrsets, _, err := client.RRSets.GetRRSets(d.Get("zone").(string), d.Get("name").(string), d.Get("type").(string))
+	rrsets, err := client.RRSets.ListAllRRSets(d.Get("zone").(string), d.Get("name").(string), d.Get("type").(string))
 	if err != nil {
 		uderr, ok := err.(*udnssdk.ErrorResponseList)
 		if ok {
