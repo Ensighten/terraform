@@ -159,7 +159,6 @@ func testAccCheckUltraDNSRecordExists(n string, record *udnssdk.RRSet) resource.
 const testAccCheckUltraDNSRecordConfigBasic = `
 resource "ultradns_record" "basic" {
   zone = "%s"
-
   name  = "basic"
   rdata = ["192.168.0.10"]
   type  = "A"
@@ -171,7 +170,6 @@ const testAccCheckUltraDNSRecordConfigNewValue = `
 resource "ultradns_record" "basic" {
   zone = "%s"
   name  = "basic"
-
   rdata = ["192.168.0.11"]
   type  = "A"
   ttl   = 3600
