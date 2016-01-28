@@ -217,8 +217,13 @@ func resourceUltraDNSRecord() *schema.Resource {
 				Optional: true,
 				Default:  "3600",
 			},
+			"rdpool_profile":  schemaRDPoolProfile(),
+			"dirpool_profile": schemaDirPoolProfile(),
+			"sbpool_profile":  schemaSBPoolProfile(),
+			"tcpool_profile":  schemaTCPoolProfile(),
+
 			"profile": &schema.Schema{
-				Type:     schema.TypeMap,
+				Type:     schema.TypeString,
 				Optional: true,
 			},
 		},
