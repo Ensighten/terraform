@@ -1,6 +1,7 @@
 package ultradns
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/Ensighten/udnssdk"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -9,11 +10,48 @@ import (
 	"strings"
 )
 
+/* Copy Pasta - http://play.golang.org/p/0weG38IUA9
+ * http://stackoverflow.com/questions/26744873/converting-map-to-struct
+ * SetField and FillStruct
+
+func SetField(obj interface{}, name string, value interface{}) error {
+	structValue := reflect.ValueOf(obj).Elem()
+	structFieldValue := structValue.FieldByName(name)
+
+	if !structFieldValue.IsValid() {
+		return fmt.Errorf("No such field: %s in obj", name)
+	}
+
+	if !structFieldValue.CanSet() {
+		return fmt.Errorf("Cannot set %s field value", name)
+	}
+
+	structFieldType := structFieldValue.Type()
+	val := reflect.ValueOf(value)
+	if structFieldType != val.Type() {
+		invalidTypeError := errors.New("Provided value type didn't match obj field type")
+		return invalidTypeError
+	}
+
+	structFieldValue.Set(val)
+	return nil
+}
+func FillStruct(s interface{}, m map[string]interface{}) error {
+	for k, v := range m {
+		err := SetField(s, k, v)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+*/
+
 func schemaSBPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:          schema.TypeMap,
 		Optional:      true,
-		ConflictsWith: []string{"dirpool_profile", "rdpool_profile", "tcpool_profile"},
+		ConflictsWith: []string{"dirpool_profile", "rdpool_profile", "tcpool_profile", "string_profile", "map_profile"},
 	}
 }
 func schemaDirPoolRDataInfo() *schema.Schema {
@@ -92,9 +130,8 @@ func schemaDirPoolIPInfo() *schema.Schema {
 }
 func schemaIPAddrDTO() *schema.Schema {
 	return &schema.Schema{
-		Type:          schema.TypeMap,
-		Optional:      true,
-		ConflictsWith: []string{"rdpool_profile", "sbpool_profile", "tcpool_profile"},
+		Type:     schema.TypeMap,
+		Optional: true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"start": &schema.Schema{
@@ -126,7 +163,7 @@ func schemaDirPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:          schema.TypeMap,
 		Optional:      true,
-		ConflictsWith: []string{"rdpool_profile", "sbpool_profile", "tcpool_profile"},
+		ConflictsWith: []string{"rdpool_profile", "sbpool_profile", "tcpool_profile", "string_profile", "map_profile"},
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"description": &schema.Schema{
@@ -151,18 +188,24 @@ func schemaDirPoolProfile() *schema.Schema {
 }
 func schemaTCPoolProfile() *schema.Schema {
 	return &schema.Schema{
-		Type:          schema.TypeMap,
-		Optional:      true,
-		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "rdpool_profile"},
+		Type:     schema.TypeMap,
+		Optional: true,
+
+		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "rdpool_profile", "string_profile", "map_profile"},
 	}
 }
 func schemaRDPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:          schema.TypeMap,
 		Optional:      true,
-		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "tcpool_profile"},
+		ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "tcpool_profile", "string_profile", "map_profile"},
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				"@context": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "http://schemas.ultradns.com/RDPool.jsonschema",
+				},
 				"order": &schema.Schema{
 					Type:     schema.TypeString,
 					Optional: true,
@@ -221,10 +264,15 @@ func resourceUltraDNSRecord() *schema.Resource {
 			"dirpool_profile": schemaDirPoolProfile(),
 			"sbpool_profile":  schemaSBPoolProfile(),
 			"tcpool_profile":  schemaTCPoolProfile(),
-
-			"profile": &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
+			"map_profile": &schema.Schema{
+				Type:          schema.TypeMap,
+				ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "tcpool_profile", "rdpool_profile", "string_profile"},
+				Optional:      true,
+			},
+			"string_profile": &schema.Schema{
+				Type:          schema.TypeString,
+				ConflictsWith: []string{"dirpool_profile", "sbpool_profile", "tcpool_profile", "rdpool_profile", "map_profile"},
+				Optional:      true,
 			},
 		},
 	}
@@ -244,12 +292,31 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 	newRecord.RData = rdatas
 	ttl := d.Get("ttl").(string)
 	newRecord.TTL, _ = strconv.Atoi(ttl)
-	newProfileStr := d.Get("profile").(string)
+	newProfileStr := d.Get("string_profile").(string)
 	if newProfileStr != "" {
 		newProfile := &udnssdk.StringProfile{Profile: newProfileStr}
 		newRecord.Profile = newProfile
 	}
-
+	profilelist := map[string]string{"rdpool_profile": "http://schemas.ultradns.com/RDPool.jsonschema", "sbpool_profile": "http://schemas.ultradns.com/SBPool.jsonschema", "tcpool_profile": "http://schemas.ultradns.com/TCPool.jsonschema", "dirpool_profile": "http://schemas.ultradns.com/DirPool.jsonschema"}
+	for key, value := range profilelist {
+		firstValidation := d.Get(key)
+		if firstValidation == nil {
+			continue
+		}
+		poolProfile := firstValidation.(map[string]interface{})
+		log.Printf("[DEBUG] - Create - %s = %+v\n", key, poolProfile)
+		if len(poolProfile) != 0 {
+			poolProfile["@context"] = value
+			x, e := json.Marshal(poolProfile)
+			log.Printf("poolProfile marshal output: %s\n", string(x))
+			if e != nil {
+				return fmt.Errorf("I did something wrong here: %+v", e)
+			}
+			newProfile := &udnssdk.StringProfile{Profile: string(x)}
+			newRecord.Profile = newProfile
+			break
+		}
+	}
 	log.Printf("[DEBUG] UltraDNS RRSet create configuration: %#v", newRecord)
 
 	_, err := client.RRSets.CreateRRSet(d.Get("zone").(string), *newRecord)
@@ -300,6 +367,29 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 			d.Set("hostname", fmt.Sprintf("%s.%s", rec.OwnerName, d.Get("zone").(string)))
 		}
 	}
+	fmt.Printf("Dump: %+v\n", rec)
+	if rec.Profile != nil {
+		t := rec.Profile.GetType()
+		d.Set("string_profile", rec.Profile.Profile)
+		var dp map[string]interface{}
+		err = json.Unmarshal([]byte(rec.Profile.Profile), &dp)
+		if err != nil {
+			return err
+		}
+		tmpvar := strings.Split(t, "/")
+		switch tmpvar[len(tmpvar)-1] {
+		case "DirPool.jsonschema":
+			d.Set("dirpool_profile", dp)
+		case "RDPool.jsonschema":
+			d.Set("rdpool_profile", dp)
+		case "TCPool.jsonschema":
+			d.Set("tcpool_profile", dp)
+		case "SBPool.jsonschema":
+			d.Set("sbpool_profile", dp)
+		default:
+			return fmt.Errorf("[DEBUG] Unknown Type %s\n", t)
+		}
+	}
 	return nil
 }
 
@@ -328,7 +418,31 @@ func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) erro
 	if attr, ok := d.GetOk("ttl"); ok {
 		updateRecord.TTL, _ = strconv.Atoi(attr.(string))
 	}
-
+	newProfileStr := d.Get("string_profile").(string)
+	if newProfileStr != "" {
+		newProfile := &udnssdk.StringProfile{Profile: newProfileStr}
+		updateRecord.Profile = newProfile
+	}
+	profilelist := map[string]string{"rdpool_profile": "http://schemas.ultradns.com/RDPool.jsonschema", "sbpool_profile": "http://schemas.ultradns.com/SBPool.jsonschema", "tcpool_profile": "http://schemas.ultradns.com/TCPool.jsonschema", "dirpool_profile": "http://schemas.ultradns.com/DirPool.jsonschema"}
+	for key, value := range profilelist {
+		firstValidation := d.Get(key)
+		if firstValidation == nil {
+			continue
+		}
+		poolProfile := firstValidation.(map[string]interface{})
+		log.Printf("[DEBUG] - Create - %s = %+v\n", key, poolProfile)
+		if len(poolProfile) != 0 {
+			poolProfile["@context"] = value
+			x, e := json.Marshal(poolProfile)
+			log.Printf("poolProfile marshal output: %s\n", string(x))
+			if e != nil {
+				return fmt.Errorf("I did something wrong here: %+v", e)
+			}
+			newProfile := &udnssdk.StringProfile{Profile: string(x)}
+			updateRecord.Profile = newProfile
+			break
+		}
+	}
 	log.Printf("[DEBUG] UltraDNS RRSet update configuration: %#v", updateRecord)
 
 	_, err := client.RRSets.UpdateRRSet(d.Get("zone").(string), *updateRecord)

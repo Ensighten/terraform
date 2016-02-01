@@ -70,7 +70,7 @@ func TestAccUltraDNSRecord_Updated(t *testing.T) {
 					resource.TestCheckResourceAttr(
 						"ultradns_record.foobar", "rdata.0", "192.168.0.11"),
 					resource.TestCheckResourceAttr(
-						"ultradns_record.foobar", "profile", testProfile),
+						"ultradns_record.foobar", "string_profile", testProfile),
 				),
 			},
 		},
@@ -146,7 +146,7 @@ func testAccCheckUltraDNSRecordExists(n string, record *udnssdk.RRSet) resource.
 	}
 }
 
-const testProfile = `{"@context": "http://schemas.ultradns.com/RDPool.jsonschema", "order": "ROUND_ROBIN","description": "T. migratorius"}`
+const testProfile = `{"@context":"http://schemas.ultradns.com/RDPool.jsonschema","order":"FIXED","description":"T. migratorius"}`
 
 const testAccCheckUltraDNSRecordConfig_basic = `
 resource "ultradns_record" "foobar" {
@@ -166,5 +166,9 @@ resource "ultradns_record" "foobar" {
 	rdata = [ "192.168.0.11" ]
 	type = "A"
 	ttl = 3600
-        profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
+        rdpool_profile {
+           order = "FIXED"
+           description = "Terraform Test Profile"
+        }
+        #profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
 }`
