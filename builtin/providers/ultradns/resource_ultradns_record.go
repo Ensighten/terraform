@@ -271,9 +271,8 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 		if len(poolProfile) != 0 {
 			poolProfile["@context"] = value
 			x, e := json.Marshal(poolProfile)
-			log.Printf("poolProfile marshal output: %s\n", string(x))
 			if e != nil {
-				return fmt.Errorf("I did something wrong here: %+v", e)
+				return fmt.Errorf("[ERROR] poolProfile Marshalling error: %+v", e)
 			}
 			newProfile := &udnssdk.StringProfile{Profile: string(x)}
 			newRecord.Profile = newProfile
@@ -285,7 +284,7 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 	_, err := client.RRSets.CreateRRSet(d.Get("zone").(string), *newRecord)
 	recId := fmt.Sprintf("%s.%s", d.Get("name").(string), d.Get("zone").(string))
 	if err != nil {
-		return fmt.Errorf("Failed to create UltraDNS RRSet: %s", err)
+		return fmt.Errorf("[ERROR] Failed to create UltraDNS RRSet: %s", err)
 	}
 
 	d.SetId(recId)
@@ -307,11 +306,11 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 					d.SetId("")
 					return nil
 				} else {
-					return fmt.Errorf("Couldn't find UltraDNS RRSet: %s", err)
+					return fmt.Errorf("[ERROR] Couldn't find UltraDNS RRSet: %s", err)
 				}
 			}
 		} else {
-			return fmt.Errorf("Couldn't find UltraDNS RRSet: %s", err)
+			return fmt.Errorf("[ERROR] Couldn't find UltraDNS RRSet: %s", err)
 		}
 	}
 	rec := rrsets[0]
@@ -330,7 +329,6 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 			d.Set("hostname", fmt.Sprintf("%s.%s", rec.OwnerName, d.Get("zone").(string)))
 		}
 	}
-	fmt.Printf("Dump: %+v\n", rec)
 	if rec.Profile != nil {
 		t := rec.Profile.GetType()
 		d.Set("string_profile", rec.Profile.Profile)
@@ -393,13 +391,11 @@ func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) erro
 			continue
 		}
 		poolProfile := firstValidation.(map[string]interface{})
-		log.Printf("[DEBUG] - Create - %s = %+v\n", key, poolProfile)
 		if len(poolProfile) != 0 {
 			poolProfile["@context"] = value
 			x, e := json.Marshal(poolProfile)
-			log.Printf("poolProfile marshal output: %s\n", string(x))
 			if e != nil {
-				return fmt.Errorf("I did something wrong here: %+v", e)
+				return fmt.Errorf("[ERROR] poolProfile Marshal error: %+v", e)
 			}
 			newProfile := &udnssdk.StringProfile{Profile: string(x)}
 			updateRecord.Profile = newProfile
@@ -410,7 +406,7 @@ func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) erro
 
 	_, err := client.RRSets.UpdateRRSet(d.Get("zone").(string), *updateRecord)
 	if err != nil {
-		return fmt.Errorf("Failed to update UltraDNS RRSet: %s", err)
+		return fmt.Errorf("[ERROR] Failed to update UltraDNS RRSet: %s", err)
 	}
 
 	return resourceUltraDNSRecordRead(d, meta)
@@ -433,7 +429,7 @@ func resourceUltraDNSRecordDelete(d *schema.ResourceData, meta interface{}) erro
 	_, err := client.RRSets.DeleteRRSet(d.Get("zone").(string), *deleteRecord)
 
 	if err != nil {
-		return fmt.Errorf("Error deleting UltraDNS RRSet: %s", err)
+		return fmt.Errorf("[ERROR] Error deleting UltraDNS RRSet: %s", err)
 	}
 
 	return nil
