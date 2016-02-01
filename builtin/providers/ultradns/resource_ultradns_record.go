@@ -10,43 +10,6 @@ import (
 	"strings"
 )
 
-/* Copy Pasta - http://play.golang.org/p/0weG38IUA9
- * http://stackoverflow.com/questions/26744873/converting-map-to-struct
- * SetField and FillStruct
-
-func SetField(obj interface{}, name string, value interface{}) error {
-	structValue := reflect.ValueOf(obj).Elem()
-	structFieldValue := structValue.FieldByName(name)
-
-	if !structFieldValue.IsValid() {
-		return fmt.Errorf("No such field: %s in obj", name)
-	}
-
-	if !structFieldValue.CanSet() {
-		return fmt.Errorf("Cannot set %s field value", name)
-	}
-
-	structFieldType := structFieldValue.Type()
-	val := reflect.ValueOf(value)
-	if structFieldType != val.Type() {
-		invalidTypeError := errors.New("Provided value type didn't match obj field type")
-		return invalidTypeError
-	}
-
-	structFieldValue.Set(val)
-	return nil
-}
-func FillStruct(s interface{}, m map[string]interface{}) error {
-	for k, v := range m {
-		err := SetField(s, k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-*/
-
 func schemaSBPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:          schema.TypeMap,
