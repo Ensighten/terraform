@@ -12,9 +12,15 @@ import (
 
 func schemaSBPoolProfile() *schema.Schema {
 	return &schema.Schema{
-		Type:          schema.TypeMap,
-		Optional:      true,
-		ConflictsWith: []string{"dirpool_profile", "rdpool_profile", "tcpool_profile", "string_profile", "map_profile"},
+		Type:     schema.TypeMap,
+		Optional: true,
+		ConflictsWith: []string{
+			"dirpool_profile",
+			"rdpool_profile",
+			"tcpool_profile",
+			"string_profile",
+			"map_profile",
+		},
 	}
 }
 func schemaDirPoolRDataInfo() *schema.Schema {
@@ -241,53 +247,113 @@ func resourceUltraDNSRecord() *schema.Resource {
 	}
 }
 
-func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) error {
-	client := meta.(*udnssdk.Client)
-	newRecord := &udnssdk.RRSet{
-		OwnerName: d.Get("name").(string),
-		RRType:    d.Get("type").(string),
+type RRSetResource struct {
+	OwnerName string
+	RRType    string
+	RData     []string
+	TTL       int
+	Profile   *udnssdk.StringProfile
+	Zone      string
+}
+
+func NewRRSetResource(d *schema.ResourceData) (RRSetResource, error) {
+	r := RRSetResource{}
+
+	if attr, ok := d.GetOk("name"); ok {
+		r.OwnerName = attr.(string)
 	}
-	rdata := d.Get("rdata").([]interface{})
-	rdatas := make([]string, len(rdata))
-	for i, j := range rdata {
-		rdatas[i] = j.(string)
+
+	if attr, ok := d.GetOk("type"); ok {
+		r.RRType = attr.(string)
 	}
-	newRecord.RData = rdatas
-	ttl := d.Get("ttl").(string)
-	newRecord.TTL, _ = strconv.Atoi(ttl)
+
+	if attr, ok := d.GetOk("zone"); ok {
+		r.Zone = attr.(string)
+	}
+
+	if attr, ok := d.GetOk("rdata"); ok {
+		rdata := attr.([]interface{})
+		r.RData = make([]string, len(rdata))
+		for i, j := range rdata {
+			r.RData[i] = j.(string)
+		}
+	}
+
+	if attr, ok := d.GetOk("ttl"); ok {
+		r.TTL, _ = strconv.Atoi(attr.(string))
+	}
+
 	newProfileStr := d.Get("string_profile").(string)
 	if newProfileStr != "" {
-		newProfile := &udnssdk.StringProfile{Profile: newProfileStr}
-		newRecord.Profile = newProfile
+		r.Profile = &udnssdk.StringProfile{
+			Profile: newProfileStr,
+		}
 	}
-	profilelist := map[string]string{"rdpool_profile": "http://schemas.ultradns.com/RDPool.jsonschema", "sbpool_profile": "http://schemas.ultradns.com/SBPool.jsonschema", "tcpool_profile": "http://schemas.ultradns.com/TCPool.jsonschema", "dirpool_profile": "http://schemas.ultradns.com/DirPool.jsonschema"}
-	for key, value := range profilelist {
+
+	profilelist := map[string]string{
+		"rdpool_profile":  "http://schemas.ultradns.com/RDPool.jsonschema",
+		"sbpool_profile":  "http://schemas.ultradns.com/SBPool.jsonschema",
+		"tcpool_profile":  "http://schemas.ultradns.com/TCPool.jsonschema",
+		"dirpool_profile": "http://schemas.ultradns.com/DirPool.jsonschema",
+	}
+	for key, schemaURL := range profilelist {
 		firstValidation := d.Get(key)
 		if firstValidation == nil {
 			continue
 		}
 		poolProfile := firstValidation.(map[string]interface{})
-		log.Printf("[DEBUG] - Create - %s = %+v\n", key, poolProfile)
 		if len(poolProfile) != 0 {
-			poolProfile["@context"] = value
-			x, e := json.Marshal(poolProfile)
-			if e != nil {
-				return fmt.Errorf("[ERROR] poolProfile Marshalling error: %+v", e)
+			poolProfile["@context"] = schemaURL
+			x, err := json.Marshal(poolProfile)
+			if err != nil {
+				return r, fmt.Errorf("[ERROR] poolProfile Marshal error: %+v", err)
 			}
-			newProfile := &udnssdk.StringProfile{Profile: string(x)}
-			newRecord.Profile = newProfile
+			r.Profile = &udnssdk.StringProfile{
+				Profile: string(x),
+			}
 			break
 		}
 	}
-	log.Printf("[DEBUG] UltraDNS RRSet create configuration: %#v", newRecord)
 
-	_, err := client.RRSets.CreateRRSet(d.Get("zone").(string), *newRecord)
-	recId := fmt.Sprintf("%s.%s", d.Get("name").(string), d.Get("zone").(string))
+	return r, nil
+}
+
+func (r RRSetResource) RRSetKey() udnssdk.RRSetKey {
+	return udnssdk.RRSetKey{
+		Zone: r.Zone,
+		Type: r.RRType,
+		Name: r.OwnerName,
+	}
+}
+
+func (r RRSetResource) RRSet() udnssdk.RRSet {
+	return udnssdk.RRSet{
+		OwnerName: r.OwnerName,
+		RRType:    r.RRType,
+		RData:     r.RData,
+		TTL:       r.TTL,
+	}
+}
+
+func (r RRSetResource) ID() string {
+	return fmt.Sprintf("%s.%s", r.OwnerName, r.Zone)
+}
+
+func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*udnssdk.Client)
+
+	r, err := NewRRSetResource(d)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("[DEBUG] UltraDNS RRSet create configuration: %#v", r.RRSet())
+	_, err = client.RRSets.Create(r.RRSetKey(), r.RRSet())
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to create UltraDNS RRSet: %s", err)
 	}
 
-	d.SetId(recId)
+	d.SetId(r.ID())
 	log.Printf("[INFO] record ID: %s", d.Id())
 
 	return resourceUltraDNSRecordRead(d, meta)
@@ -296,7 +362,12 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
-	rrsets, err := client.RRSets.ListAllRRSets(d.Get("zone").(string), d.Get("name").(string), d.Get("type").(string))
+	r, err := NewRRSetResource(d)
+	if err != nil {
+		return err
+	}
+
+	rrsets, err := client.RRSets.Select(r.RRSetKey())
 	if err != nil {
 		uderr, ok := err.(*udnssdk.ErrorResponseList)
 		if ok {
@@ -314,39 +385,42 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 		}
 	}
 	rec := rrsets[0]
+	// ttl
+	d.Set("ttl", rec.TTL)
+	// rdata
 	err = d.Set("rdata", rec.RData)
 	if err != nil {
 		return fmt.Errorf("[DEBUG] Error setting records: %#v", err)
 	}
-	d.Set("ttl", rec.TTL)
-
+	// hostname
 	if rec.OwnerName == "" {
-		d.Set("hostname", d.Get("zone").(string))
+		d.Set("hostname", r.Zone)
 	} else {
 		if strings.HasSuffix(rec.OwnerName, ".") {
 			d.Set("hostname", rec.OwnerName)
 		} else {
-			d.Set("hostname", fmt.Sprintf("%s.%s", rec.OwnerName, d.Get("zone").(string)))
+			d.Set("hostname", fmt.Sprintf("%s.%s", rec.OwnerName, r.Zone))
 		}
 	}
+	// *_profile
 	if rec.Profile != nil {
 		t := rec.Profile.GetType()
 		d.Set("string_profile", rec.Profile.Profile)
-		var dp map[string]interface{}
-		err = json.Unmarshal([]byte(rec.Profile.Profile), &dp)
+		var p map[string]interface{}
+		err = json.Unmarshal([]byte(rec.Profile.Profile), &p)
 		if err != nil {
 			return err
 		}
-		tmpvar := strings.Split(t, "/")
-		switch tmpvar[len(tmpvar)-1] {
+		typ := strings.Split(t, "/")
+		switch typ[len(typ)-1] {
 		case "DirPool.jsonschema":
-			d.Set("dirpool_profile", dp)
+			d.Set("dirpool_profile", p)
 		case "RDPool.jsonschema":
-			d.Set("rdpool_profile", dp)
+			d.Set("rdpool_profile", p)
 		case "TCPool.jsonschema":
-			d.Set("tcpool_profile", dp)
+			d.Set("tcpool_profile", p)
 		case "SBPool.jsonschema":
-			d.Set("sbpool_profile", dp)
+			d.Set("sbpool_profile", p)
 		default:
 			return fmt.Errorf("[DEBUG] Unknown Type %s\n", t)
 		}
@@ -357,54 +431,13 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
-	updateRecord := &udnssdk.RRSet{}
-
-	if attr, ok := d.GetOk("name"); ok {
-		updateRecord.OwnerName = attr.(string)
+	r, err := NewRRSetResource(d)
+	if err != nil {
+		return err
 	}
 
-	if attr, ok := d.GetOk("type"); ok {
-		updateRecord.RRType = attr.(string)
-	}
-
-	if attr, ok := d.GetOk("rdata"); ok {
-		rdata := attr.([]interface{})
-		rdatas := make([]string, len(rdata))
-		for i, j := range rdata {
-			rdatas[i] = j.(string)
-		}
-		updateRecord.RData = rdatas
-	}
-
-	if attr, ok := d.GetOk("ttl"); ok {
-		updateRecord.TTL, _ = strconv.Atoi(attr.(string))
-	}
-	newProfileStr := d.Get("string_profile").(string)
-	if newProfileStr != "" {
-		newProfile := &udnssdk.StringProfile{Profile: newProfileStr}
-		updateRecord.Profile = newProfile
-	}
-	profilelist := map[string]string{"rdpool_profile": "http://schemas.ultradns.com/RDPool.jsonschema", "sbpool_profile": "http://schemas.ultradns.com/SBPool.jsonschema", "tcpool_profile": "http://schemas.ultradns.com/TCPool.jsonschema", "dirpool_profile": "http://schemas.ultradns.com/DirPool.jsonschema"}
-	for key, value := range profilelist {
-		firstValidation := d.Get(key)
-		if firstValidation == nil {
-			continue
-		}
-		poolProfile := firstValidation.(map[string]interface{})
-		if len(poolProfile) != 0 {
-			poolProfile["@context"] = value
-			x, e := json.Marshal(poolProfile)
-			if e != nil {
-				return fmt.Errorf("[ERROR] poolProfile Marshal error: %+v", e)
-			}
-			newProfile := &udnssdk.StringProfile{Profile: string(x)}
-			updateRecord.Profile = newProfile
-			break
-		}
-	}
-	log.Printf("[DEBUG] UltraDNS RRSet update configuration: %#v", updateRecord)
-
-	_, err := client.RRSets.UpdateRRSet(d.Get("zone").(string), *updateRecord)
+	log.Printf("[DEBUG] UltraDNS RRSet update configuration: %#v", r.RRSet())
+	_, err = client.RRSets.Update(r.RRSetKey(), r.RRSet())
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to update UltraDNS RRSet: %s", err)
 	}
@@ -415,18 +448,12 @@ func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) erro
 func resourceUltraDNSRecordDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
-	log.Printf("[INFO] Deleting UltraDNS RRSet: %s, %s", d.Get("zone").(string), d.Id())
-	deleteRecord := &udnssdk.RRSet{}
-
-	if attr, ok := d.GetOk("name"); ok {
-		deleteRecord.OwnerName = attr.(string)
+	r, err := NewRRSetResource(d)
+	if err != nil {
+		return err
 	}
 
-	if attr, ok := d.GetOk("type"); ok {
-		deleteRecord.RRType = attr.(string)
-	}
-
-	_, err := client.RRSets.DeleteRRSet(d.Get("zone").(string), *deleteRecord)
+	_, err = client.RRSets.Delete(r.RRSetKey())
 
 	if err != nil {
 		return fmt.Errorf("[ERROR] Error deleting UltraDNS RRSet: %s", err)
