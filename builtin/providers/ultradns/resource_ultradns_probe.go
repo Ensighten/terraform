@@ -9,6 +9,151 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
+var typeToAttrKeyMap = map[string]string{
+	"HTTP":      "http_probe",
+	"PING":      "ping_probe",
+	"FTP":       "ftp_probe",
+	"SMTP":      "smtp_probe",
+	"SMTP_SEND": "smtpsend_probe",
+	"DNS":       "dns_probe",
+}
+
+type probeResource struct {
+	Name string
+	Zone string
+	ID   string
+
+	Agents     []string
+	Interval   string
+	PoolRecord string
+	Threshold  int
+	Type       string
+	Details    *udnssdk.ProbeDetailsDTO
+}
+
+func newProbeResource(d *schema.ResourceData) (probeResource, error) {
+	p := probeResource{}
+	// zoneName
+	p.Zone = d.Get("zoneName").(string)
+	// ownerName
+	p.Name = d.Get("ownerName").(string)
+	// id
+	p.ID = d.Id()
+
+	p.PoolRecord = d.Get("poolRecord").(string)
+	p.Type = d.Get("type").(string)
+	p.Interval = d.Get("interval").(string)
+	p.Threshold = d.Get("threshold").(int)
+
+	// agents
+	oldagents, ok := d.GetOk("agents")
+	if !ok {
+		return p, fmt.Errorf("ultradns_probe.agents not ok")
+	}
+	for _, e := range oldagents.([]interface{}) {
+		p.Agents = append(p.Agents, e.(string))
+	}
+
+	// details
+	// TODO: validate p.Type is in typeToAttrKeyMap.Keys
+	typeAttrKey := typeToAttrKeyMap[p.Type]
+	attr, ok := d.GetOk(typeAttrKey)
+	if !ok {
+		return p, fmt.Errorf("ultradns_probe.%s not ok", typeAttrKey)
+	}
+	probeset := attr.(*schema.Set)
+	var probedetails map[string]interface{}
+	probedetails = probeset.List()[0].(map[string]interface{})
+	// Convert limits from flattened set format to mapping.
+	limits := map[string]interface{}{}
+	for _, limit := range probedetails["limits"].([]interface{}) {
+		l := limit.(map[string]interface{})
+		name := l["name"].(string)
+		limits[name] = map[string]interface{}{
+			"warning":  l["warning"],
+			"critical": l["critical"],
+			"fail":     l["fail"],
+		}
+	}
+	probedetails["limits"] = limits
+
+	p.Details = &udnssdk.ProbeDetailsDTO{
+		Detail: probedetails,
+	}
+	return p, nil
+}
+
+func (r probeResource) Key() udnssdk.ProbeKey {
+	k := udnssdk.ProbeKey{
+		Name: r.Name,
+		Zone: r.Zone,
+		ID:   r.ID,
+	}
+	return k
+}
+
+func (r probeResource) ProbeInfoDTO() udnssdk.ProbeInfoDTO {
+	p := udnssdk.ProbeInfoDTO{
+		ID:         r.ID,
+		PoolRecord: r.PoolRecord,
+		ProbeType:  r.Type,
+		Interval:   r.Interval,
+		Agents:     r.Agents,
+		Threshold:  r.Threshold,
+		Details:    r.Details,
+	}
+	return p
+}
+
+func populateResourceDataFromProbe(p udnssdk.ProbeInfoDTO, d *schema.ResourceData) error {
+	err := p.Details.Populate(p.ProbeType)
+	if err != nil {
+		return fmt.Errorf("Could not populate probe details: %#v", err)
+	}
+	// poolRecord
+	err = d.Set("poolRecord", p.PoolRecord)
+	if err != nil {
+		return fmt.Errorf("Error setting poolRecord: %#v", err)
+	}
+	// interval
+	err = d.Set("interval", p.Interval)
+	if err != nil {
+		return fmt.Errorf("Error setting interval: %#v", err)
+	}
+	// type
+	err = d.Set("type", p.ProbeType)
+	if err != nil {
+		return fmt.Errorf("Error setting type: %#v", err)
+	}
+	// agents
+	err = d.Set("agents", p.Agents)
+	if err != nil {
+		return fmt.Errorf("Error setting agents: %#v", err)
+	}
+	// threshold
+	err = d.Set("threshold", p.Threshold)
+	if err != nil {
+		return fmt.Errorf("Error setting threshold: %#v", err)
+	}
+	// id
+	d.SetId(p.ID)
+	// details
+	if p.Details != nil {
+		var dp map[string]interface{}
+		err = json.Unmarshal(p.Details.GetData(), &dp)
+		if err != nil {
+			return err
+		}
+
+		err = d.Set(typeToAttrKeyMap[p.ProbeType], dp)
+		if err != nil {
+			return fmt.Errorf("Error setting details: %#v", err)
+		}
+
+	}
+	return nil
+}
+
 /*
 func schemaTransaction() *schema.Schema {
 	return &schema.Schema{
@@ -320,10 +465,7 @@ func resourceUltraDNSProbe() *schema.Resource {
 		Delete: resourceUltraDNSProbeDelete,
 
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
-			},
+			// Required
 			"ownerName": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -348,7 +490,6 @@ func resourceUltraDNSProbe() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-
 			"interval": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -362,115 +503,78 @@ func resourceUltraDNSProbe() *schema.Resource {
 			"threshold": &schema.Schema{
 				Type:     schema.TypeInt,
 				Required: true,
-			}, /*
-				"http_probe": &schema.Schema{
-					Type:          schema.TypeSet,
-					Optional:      true,
-					ConflictsWith: []string{"dns_probe", "ping_probe", "smtp_probe", "smtpsend_probe"},
-					Elem:          schemaHTTPProbe(),
-				},
-				"dns_probe": &schema.Schema{
-					Type:          schema.TypeSet,
-					Optional:      true,
-					ConflictsWith: []string{"http_probe", "ping_probe", "smtp_probe", "smtpsend_probe"},
-					Elem:          schemaDNSProbe(),
-				},
-				"smtpsend_probe": &schema.Schema{
-					Type:          schema.TypeSet,
-					Optional:      true,
-					ConflictsWith: []string{"http_probe", "ping_probe", "smtp_probe", "dns_probe"},
-					Elem:          schemaDNSProbe(),
-				},
-				"smtp_probe": &schema.Schema{
-					Type:          schema.TypeSet,
-					Optional:      true,
-					ConflictsWith: []string{"http_probe", "ping_probe", "dns_probe", "smtpsend_probe"},
-					Elem:          schemaDNSProbe(),
-				},*/
+			},
+			// Optional
 			"ping_probe": &schema.Schema{
 				Type:     schema.TypeSet,
 				Optional: true,
 				//ConflictsWith: []string{"http_probe", "smtp_probe", "dns_probe", "smtpsend_probe"},
 				Elem: schemaPingProbe(),
 			},
+			// "http_probe": &schema.Schema{
+			// 	Type:          schema.TypeSet,
+			// 	Optional:      true,
+			// 	ConflictsWith: []string{"dns_probe", "ping_probe", "smtp_probe", "smtpsend_probe"},
+			// 	Elem:          schemaHTTPProbe(),
+			// },
+			// "dns_probe": &schema.Schema{
+			// 	Type:          schema.TypeSet,
+			// 	Optional:      true,
+			// 	ConflictsWith: []string{"http_probe", "ping_probe", "smtp_probe", "smtpsend_probe"},
+			// 	Elem:          schemaDNSProbe(),
+			// },
+			// "smtpsend_probe": &schema.Schema{
+			// 	Type:          schema.TypeSet,
+			// 	Optional:      true,
+			// 	ConflictsWith: []string{"http_probe", "ping_probe", "smtp_probe", "dns_probe"},
+			// 	Elem:          schemaDNSProbe(),
+			// },
+			// "smtp_probe": &schema.Schema{
+			// 	Type:          schema.TypeSet,
+			// 	Optional:      true,
+			// 	ConflictsWith: []string{"http_probe", "ping_probe", "dns_probe", "smtpsend_probe"},
+			// 	Elem:          schemaDNSProbe(),
+			// },
+			// Computed
+			"id": &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 		},
 	}
-
 }
 
 func resourceUltraDNSProbeCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	newProbe := udnssdk.ProbeInfoDTO{
-		ID:         d.Id(),
-		PoolRecord: d.Get("poolRecord").(string),
-		ProbeType:  d.Get("type").(string),
-		Interval:   d.Get("interval").(string),
-		Threshold:  d.Get("threshold").(int),
-	}
-	typeToTypeMap := map[string]string{
-		"HTTP":      "http_probe",
-		"PING":      "ping_probe",
-		"FTP":       "ftp_probe",
-		"SMTP":      "smtp_probe",
-		"SMTP_SEND": "smtpsend_probe",
-		"DNS":       "dns_probe",
-	}
-	// Transmute format of 'agents' field
-	oldagents, ok := d.GetOk("agents")
-	if !ok {
-		return fmt.Errorf("Can not get agents for probetype %s.", newProbe.ProbeType)
-	}
-	var newagents []string
-	for _, e := range oldagents.([]interface{}) {
-		newagents = append(newagents, e.(string))
-	}
-	newProbe.Agents = newagents
-	// Find probe type
-	probeset, ok := d.GetOk(typeToTypeMap[newProbe.ProbeType])
-	if !ok {
-		return fmt.Errorf("Can not get appropriate details for probetype %s.", newProbe.ProbeType)
-	}
-	var probedetails map[string]interface{}
-	probedetails = probeset.(*schema.Set).List()[0].(map[string]interface{})
-	// Convert limits from flattened set format to mapping.
-	newlimits := map[string]interface{}{}
-	for _, el := range probedetails["limits"].([]interface{}) {
-		element := el.(map[string]interface{})
-		newlimits[element["name"].(string)] = map[string]interface{}{"warning": element["warning"], "critical": element["critical"], "fail": element["fail"]}
-	}
-	probedetails["limits"] = newlimits
-	newdetails := &udnssdk.ProbeDetailsDTO{
-		Detail: probedetails,
-	}
-	newProbe.Details = newdetails
-	log.Printf("[DEBUG] UltraDNS Probe create configuration: %#v", newProbe)
-	name := d.Get("ownerName").(string)
-	//typ := newProbe.ProbeType
-	typ := d.Get("ownerType").(string)
-	zone := d.Get("zoneName").(string)
-	guid, locale, _, err := client.SBTCService.CreateProbe(name, typ, zone, newProbe)
+
+	r, err := newProbeResource(d)
 	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to create UltraDNS Probe: %s", err)
+		return err
 	}
-	d.Set("uri", locale)
-	d.SetId(guid)
-	log.Printf("[INFO] Probe ID: %s", d.Id())
+
+	log.Printf("[INFO] ultradns_probe create: %#v", r)
+	resp, err := client.Probes.Create(r.Key().RRSetKey(), r.ProbeInfoDTO())
+	if err != nil {
+		return fmt.Errorf("ultradns_probe create failed: %s", err)
+	}
+
+	uri := resp.Header.Get("Location")
+	d.Set("uri", uri)
+	id := resp.Header.Get("ID")
+	d.SetId(id)
+	log.Printf("[INFO] ultradns_probe.id: %s", d.Id())
+
 	return resourceUltraDNSProbeRead(d, meta)
 }
 
 func resourceUltraDNSProbeRead(d *schema.ResourceData, meta interface{}) error {
-
-	typeToTypeMap := map[string]string{
-		"HTTP":      "http_probe",
-		"PING":      "ping_probe",
-		"FTP":       "ftp_probe",
-		"SMTP":      "smtp_probe",
-		"SMTP_SEND": "smtpsend_probe",
-		"DNS":       "dns_probe",
-	}
-	log.Printf("[DEBUG] Entering resourceUltraDNSProbeRead\n")
 	client := meta.(*udnssdk.Client)
-	probe, _, err := client.SBTCService.GetProbe(d.Get("name").(string), d.Get("type").(string), d.Get("zone").(string), d.Id())
+	r, err := newProbeResource(d)
+	if err != nil {
+		return err
+	}
+
+	probe, _, err := client.Probes.Find(r.Key())
 	if err != nil {
 		uderr, ok := err.(*udnssdk.ErrorResponseList)
 		if ok {
@@ -479,119 +583,44 @@ func resourceUltraDNSProbeRead(d *schema.ResourceData, meta interface{}) error {
 				if r.ErrorCode == 70002 {
 					d.SetId("")
 					return nil
-				} else {
-					return fmt.Errorf("[ERROR] Couldn't find UltraDNS Probe: %s", err)
 				}
+				return fmt.Errorf("ultradns_probe not found: %s", err)
 			}
-		} else {
-			return fmt.Errorf("[ERROR] Couldn't find UltraDNS Probe: %s", err)
 		}
+		return fmt.Errorf("ultradns_probe not found: %s", err)
 	}
-	err = probe.Details.Populate(probe.ProbeType)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Could not populate probe details: %#v", err)
-	}
-	err = d.Set("poolRecord", probe.PoolRecord)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Error setting poolRecord: %#v", err)
-	}
-	err = d.Set("interval", probe.Interval)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Error setting interval: %#v", err)
-	}
-	err = d.Set("type", probe.ProbeType)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Error setting type: %#v", err)
-	}
-
-	err = d.Set("agents", probe.Agents)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Error setting agents: %#v", err)
-	}
-	err = d.Set("threshold", probe.Threshold)
-	if err != nil {
-		return fmt.Errorf("[DEBUG] Error setting threshold: %#v", err)
-	}
-	d.SetId(probe.ID)
-
-	if probe.Details != nil {
-
-		var dp map[string]interface{}
-		err = json.Unmarshal(probe.Details.GetData(), &dp)
-		if err != nil {
-			return err
-		}
-
-		err = d.Set(typeToTypeMap[probe.ProbeType], dp)
-		if err != nil {
-			return fmt.Errorf("[DEBUG] Error setting details: %#v", err)
-		}
-
-	}
-	return nil
+	return populateResourceDataFromProbe(probe, d)
 }
 
 func resourceUltraDNSProbeUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
-	typeToTypeMap := map[string]string{
-		"HTTP":      "http_probe",
-		"PING":      "ping_probe",
-		"FTP":       "ftp_probe",
-		"SMTP":      "smtp_probe",
-		"SMTP_SEND": "smtpsend_probe",
-		"DNS":       "dns_probe",
-	}
-	updateProbe := &udnssdk.ProbeInfoDTO{}
-	newProbe := udnssdk.ProbeInfoDTO{
-		ID:         d.Id(),
-		PoolRecord: d.Get("poolRecord").(string),
-		ProbeType:  d.Get("type").(string),
-		Interval:   d.Get("interval").(string),
-		Agents:     d.Get("agents").([]string),
-		Threshold:  d.Get("threshold").(int),
-	}
-
-	deets2, ok := d.GetOk(typeToTypeMap[newProbe.ProbeType])
-	if !ok {
-		return fmt.Errorf("Can not get appropriate details for probetype %s.", newProbe.ProbeType)
-	}
-	_, err := json.Marshal(deets2)
+	r, err := newProbeResource(d)
 	if err != nil {
-		return fmt.Errorf("Could not marshal data details.  %+v", err)
+		return err
 	}
-	newdetails := &udnssdk.ProbeDetailsDTO{
-		Detail: deets2,
-	}
-	newProbe.Details = newdetails
 
-	log.Printf("[DEBUG] UltraDNS Probe create configuration: %#v", newProbe)
-	name := d.Get("ownerName").(string)
-	typ := newProbe.ProbeType
-	zone := d.Get("zoneName").(string)
-	guid := d.Id()
-	_, err = client.SBTCService.UpdateProbe(name, typ, zone, guid, newProbe)
+	log.Printf("[INFO] ultradns_probe update: %#v", r)
+	_, err = client.Probes.Update(r.Key(), r.ProbeInfoDTO())
 	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to update UltraDNS Probe: %s", err)
+		return fmt.Errorf("ultradns_probe update failed: %s", err)
 	}
-
-	log.Printf("[DEBUG] UltraDNS Probe update configuration: %#v", updateProbe)
 
 	return resourceUltraDNSProbeRead(d, meta)
 }
 
 func resourceUltraDNSProbeDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	zone := d.Get("zoneName").(string)
-	guid := d.Id()
-	name := d.Get("ownerName").(string)
-	typ := d.Get("type").(string)
-	log.Printf("[INFO] Deleting UltraDNS Probe: %s, %s", d.Get("zone").(string), d.Id())
 
-	_, err := client.SBTCService.DeleteProbe(name, typ, zone, guid)
-
+	r, err := newProbeResource(d)
 	if err != nil {
-		return fmt.Errorf("[ERROR] Error deleting UltraDNS Probe: %s", err)
+		return err
+	}
+
+	log.Printf("[INFO] ultradns_probe delete: %#v", r)
+	_, err = client.Probes.Delete(r.Key())
+	if err != nil {
+		return fmt.Errorf("ultradns_probe delete failed: %s", err)
 	}
 
 	return nil

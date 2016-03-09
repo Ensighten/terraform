@@ -82,6 +82,7 @@ func populateResourceDataFromRRSet(r udnssdk.RRSet, d *schema.ResourceData) erro
 		}
 	}
 
+	// *_profile
 	if r.Profile != nil {
 		d.Set("string_profile", r.Profile.Profile)
 		// TODO: use udnssdk.StringProfile.GetProfileObject()

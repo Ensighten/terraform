@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform/terraform"
 )
 
-func TestAccUltraDNSProbe_Basic(t *testing.T) {
+func TestAccUltraDNSProbeBasic(t *testing.T) {
 	var record udnssdk.RRSet
 	domain := os.Getenv("ULTRADNS_DOMAIN")
 
@@ -20,7 +20,7 @@ func TestAccUltraDNSProbe_Basic(t *testing.T) {
 		CheckDestroy: testAccCheckUltraDNSRecordAndProbeDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: fmt.Sprintf(testAccCheckUltraDNSRecordAndProbe_basic, domain, domain),
+				Config: fmt.Sprintf(testAccCheckUltraDNSRecordAndProbeBasic, domain, domain),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckUltraDNSRecordExists("ultradns_record.foobar", &record),
 					testAccCheckUltraDNSRecordAttributes(&record),
@@ -86,8 +86,13 @@ func testAccCheckUltraDNSRecordAndProbeDestroy(s *terraform.State) error {
 			continue
 		}
 
-		_, err := client.RRSets.ListAllRRSets(rs.Primary.Attributes["zone"], rs.Primary.Attributes["name"], rs.Primary.Attributes["type"])
+		k := udnssdk.RRSetKey{
+			Zone: rs.Primary.Attributes["zone"],
+			Name: rs.Primary.Attributes["name"],
+			Type: rs.Primary.Attributes["type"],
+		}
 
+		_, err := client.RRSets.Select(k)
 		if err == nil {
 			return fmt.Errorf("Record still exists")
 		}
@@ -149,70 +154,76 @@ func testAccCheckUltraDNSRecordExists(n string, record *udnssdk.RRSet) resource.
 	}
 }
 */
-const testAccCheckUltraDNSRecordAndProbe_basic = `
+const testAccCheckUltraDNSRecordAndProbeBasic = `
 resource "ultradns_record" "foobar" {
-	zone = "%s"
-	name = "terraformprobetest"
-	rdata = [ "192.168.0.11" , "192.168.0.12"]
-	type = "A"
-	ttl = 3600
-        #rdpool_profile {
-        #   order = "FIXED"
-        #   description = "Terraform Test Profile"
-        #}
-        #profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
-        tcpool_profile {
-            description = "This is a test TC Profile for Terraform Acceptance Tests"
-            runProbes = true
-            actOnProbes = true
-            maxToLB = 2
-#            rdataInfo {
-#                     state = "NORMAL"
-#                     runProbes = true
-#                     priority = 1
-#                     failoverDelay = 0
-#                     threshold = 1
-#                     weight = 2
-#            }
-#            rdataInfo {
-#                     state = "NORMAL"
-#                     runProbes = true
-#                     priority = 2
-#                     failoverDelay = 0
-#                     threshold = 1
-#                     weight = 2
-#            }
-            backupRecord = "192.168.0.1"
-        }
+  zone  = "%s"
+  name  = "terraformprobetest"
+  rdata = ["192.168.0.11", "192.168.0.12"]
+  type  = "A"
+  ttl   = 3600
+
+  rdpool_profile {
+    order       = "FIXED"
+    description = "Terraform Test Profile"
+  }
+
+  profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
+
+  tcpool_profile {
+    description = "This is a test TC Profile for Terraform Acceptance Tests"
+    runProbes   = true
+    actOnProbes = true
+    maxToLB     = 2
+
+    rdataInfo {
+      state         = "NORMAL"
+      runProbes     = true
+      priority      = 1
+      failoverDelay = 0
+      threshold     = 1
+      weight        = 2
+    }
+
+    rdataInfo {
+      state         = "NORMAL"
+      runProbes     = true
+      priority      = 2
+      failoverDelay = 0
+      threshold     = 1
+      weight        = 2
+    }
+
+    backupRecord = "192.168.0.1"
+  }
 }
 
 resource "ultradns_probe" "ping" {
-        zoneName = "%s"
-        ownerName = "terraformprobetest"
-        ownerType = "A"
-        type = "PING"
-        interval = "ONE_MINUTE"
-        poolRecord = "192.168.0.11"
-        agents = [ "DALLAS", "AMSTERDAM" ]
-        threshold = 1
+  zoneName   = "%s"
+  ownerName  = "terraformprobetest"
+  ownerType  = "A"
+  type       = "PING"
+  interval   = "ONE_MINUTE"
+  poolRecord = "192.168.0.11"
+  agents     = ["DALLAS", "AMSTERDAM"]
+  threshold  = 1
 
-            ping_probe {
-                packets = 15
-                packetSize = 56
-                limits {
-                    name = "lossPercent"
-                    warning = 1
-                    critical = 2
-                    fail = 3
-                }
-                limits {
-                    name = "total"
-                    warning = 2
-                    critical = 3
-                    fail = 4
-                }
-            }
+  ping_probe {
+    packets    = 15
+    packetSize = 56
+
+    limits {
+      name     = "lossPercent"
+      warning  = 1
+      critical = 2
+      fail     = 3
+    }
+
+    limits {
+      name     = "total"
+      warning  = 2
+      critical = 3
+      fail     = 4
+    }
+  }
 }
-
-
 `

@@ -117,7 +117,13 @@ func resourceUltraDNSNotificationCreate(d *schema.ResourceData, meta interface{}
 	}
 	log.Printf("[DEBUG] UltraDNS Notification create configuration: %#v", newNotification)
 
-	r, err := client.SBTCService.CreateNotification(name, typ, zone, email, newNotification)
+	k := udnssdk.NotificationKey{
+		Name:  name,
+		Type:  typ,
+		Zone:  zone,
+		Email: email,
+	}
+	r, err := client.Notifications.Create(k, newNotification)
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to create UltraDNS Notification: %s", err)
 	}
@@ -136,7 +142,13 @@ func resourceUltraDNSNotificationCreate(d *schema.ResourceData, meta interface{}
 
 func resourceUltraDNSNotificationRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	notification, _, err := client.SBTCService.GetNotification(d.Get("name").(string), d.Get("type").(string), d.Get("zone").(string), d.Get("email").(string))
+	k := udnssdk.NotificationKey{
+		Name:  d.Get("name").(string),
+		Type:  d.Get("type").(string),
+		Zone:  d.Get("zone").(string),
+		Email: d.Get("email").(string),
+	}
+	notification, _, err := client.Notifications.Find(k)
 
 	if err != nil {
 		uderr, ok := err.(*udnssdk.ErrorResponseList)
@@ -146,13 +158,11 @@ func resourceUltraDNSNotificationRead(d *schema.ResourceData, meta interface{}) 
 				if r.ErrorCode == 70002 {
 					d.SetId("")
 					return nil
-				} else {
-					return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
 				}
+				return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
 			}
-		} else {
-			return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
 		}
+		return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
 	}
 	//email := notification.Email
 	var prs []map[string]interface{}
@@ -200,7 +210,13 @@ func resourceUltraDNSNotificationUpdate(d *schema.ResourceData, meta interface{}
 	}
 	log.Printf("[DEBUG] UltraDNS Notification update configuration: %#v", updateNotification)
 
-	_, err := client.SBTCService.UpdateNotification(name, typ, zone, email, updateNotification)
+	k := udnssdk.NotificationKey{
+		Name:  name,
+		Type:  typ,
+		Zone:  zone,
+		Email: email,
+	}
+	_, err := client.Notifications.Update(k, updateNotification)
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to create UltraDNS Notification: %s", err)
 	}
@@ -218,9 +234,15 @@ func resourceUltraDNSNotificationDelete(d *schema.ResourceData, meta interface{}
 	email := d.Get("email").(string)
 	name := d.Get("ownerName").(string)
 	typ := d.Get("type").(string)
-	log.Printf("[INFO] Deleting UltraDNS Notification: %s, %s", d.Get("zone").(string), email)
 
-	_, err := client.SBTCService.DeleteNotification(name, typ, zone, email)
+	k := udnssdk.NotificationKey{
+		Name:  name,
+		Type:  typ,
+		Zone:  zone,
+		Email: email,
+	}
+	log.Printf("[INFO] ultradns_notification delete: %#v", k)
+	_, err := client.Notifications.Delete(k)
 
 	if err != nil {
 		return fmt.Errorf("[ERROR] Error deleting UltraDNS Notification: %s", err)
