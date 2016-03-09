@@ -120,6 +120,7 @@ func populateResourceDataFromRRSet(r udnssdk.RRSet, d *schema.ResourceData) erro
 		}
 	}
 
+	// *_profile
 	if r.Profile != nil {
 		d.Set("string_profile", r.Profile.Profile)
 		// TODO: use udnssdk.StringProfile.GetProfileObject()
@@ -409,7 +410,7 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 	log.Printf("[INFO] ultradns_record create: %#v", r.RRSet())
 	_, err = client.RRSets.Create(r.RRSetKey(), r.RRSet())
 	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to create UltraDNS RRSet: %s", err)
+		return fmt.Errorf("Failed to create UltraDNS RRSet: %s", err)
 	}
 
 	d.SetId(r.ID())
