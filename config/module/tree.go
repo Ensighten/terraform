@@ -157,7 +157,13 @@ func (t *Tree) Load(s getter.Storage, mode GetMode) error {
 		// Get the directory where this module is so we can load it
 		key := strings.Join(path, ".")
 		key = "root." + key
-		dir, ok, err := getStorage(s, key, source, mode)
+
+		// Altering this to pass source as the key to go-getter
+		//
+		// This was changed in https://github.com/hashicorp/terraform/pull/1418
+		// to support cross platform pushes, we don't need this and prefer
+		// the performance improvement from the old method
+		dir, ok, err := getStorage(s, source, source, mode)
 		if err != nil {
 			return err
 		}
