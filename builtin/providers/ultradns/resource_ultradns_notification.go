@@ -13,20 +13,13 @@ func schemaNotification() *schema.Schema {
 		Type:     schema.TypeMap,
 		Optional: true,
 		Elem: &schema.Resource{
-
 			Schema: map[string]*schema.Schema{
-
-				"ownerName": &schema.Schema{
+				"zone": &schema.Schema{
 					Type:     schema.TypeString,
 					Required: true,
 					ForceNew: true,
 				},
-				"zoneName": &schema.Schema{
-					Type:     schema.TypeString,
-					Required: true,
-					ForceNew: true,
-				},
-				"recordType": &schema.Schema{
+				"name": &schema.Schema{
 					Type:     schema.TypeString,
 					Required: true,
 					ForceNew: true,
@@ -84,57 +77,18 @@ func schemaNotificationInfo() *schema.Schema {
 }
 func resourceUltraDNSNotificationCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	email := d.Get("email").(string)
-	poolrecords := d.Get("poolRecords").(*schema.Set).List()
 
-	name := d.Get("ownerName").(string)
-	typ := d.Get("recordType").(string)
-	zone := d.Get("zoneName").(string)
+	n := newNotificationResource(d)
 
-	var prs []udnssdk.NotificationPoolRecord
-
-	for _, e := range poolrecords {
-		vv := e.(*schema.ResourceData)
-		prstr := vv.Get("poolrecord").(string)
-		notif := vv.Get("notification").(*schema.ResourceData)
-		nidto := udnssdk.NotificationInfoDTO{
-			Probe:     notif.Get("probe").(bool),
-			Record:    notif.Get("record").(bool),
-			Scheduled: notif.Get("scheduled").(bool),
-		}
-
-		pr := udnssdk.NotificationPoolRecord{
-			PoolRecord:   prstr,
-			Notification: nidto,
-		}
-		prs = append(prs, pr)
-
-	}
-
-	newNotification := udnssdk.NotificationDTO{
-		Email:       email,
-		PoolRecords: prs,
-	}
-	log.Printf("[DEBUG] UltraDNS Notification create configuration: %#v", newNotification)
-
-	k := udnssdk.NotificationKey{
-		Name:  name,
-		Type:  typ,
-		Zone:  zone,
-		Email: email,
-	}
-	r, err := client.Notifications.Create(k, newNotification)
+	log.Printf("[INFO] ultradns_notification create: %#v", n)
+	r, err := client.Notifications.Create(n.Key(), n.notificationDTO())
 	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to create UltraDNS Notification: %s", err)
+		return fmt.Errorf("ultradns_notification created failed: %s", err)
 	}
+
 	uri := r.Header.Get("Location")
-
-	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to create UltraDNS Notification: %s", err)
-	}
 	d.Set("uri", uri)
 	d.SetId(uri)
-
 	log.Printf("[INFO] Notification ID: %s", d.Id())
 
 	return resourceUltraDNSNotificationRead(d, meta)
@@ -142,13 +96,8 @@ func resourceUltraDNSNotificationCreate(d *schema.ResourceData, meta interface{}
 
 func resourceUltraDNSNotificationRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	k := udnssdk.NotificationKey{
-		Name:  d.Get("name").(string),
-		Type:  d.Get("type").(string),
-		Zone:  d.Get("zone").(string),
-		Email: d.Get("email").(string),
-	}
-	notification, _, err := client.Notifications.Find(k)
+	n := newNotificationResource(d)
+	notification, _, err := client.Notifications.Find(n.Key())
 
 	if err != nil {
 		uderr, ok := err.(*udnssdk.ErrorResponseList)
@@ -159,94 +108,103 @@ func resourceUltraDNSNotificationRead(d *schema.ResourceData, meta interface{}) 
 					d.SetId("")
 					return nil
 				}
-				return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
+				return fmt.Errorf("ultradns_notification not found: %s", err)
 			}
 		}
-		return fmt.Errorf("[ERROR] Couldn't find UltraDNS Notification: %s", err)
+		return fmt.Errorf("ultradns_notification not found: %s", err)
 	}
-	//email := notification.Email
 	var prs []map[string]interface{}
-	poolrecords := notification.PoolRecords
-	for _, e := range poolrecords {
-		n := e.Notification
-		pr := e.PoolRecord
-		prs = append(prs, map[string]interface{}{"poolRecord": pr, "notification": n})
+	for _, e := range notification.PoolRecords {
+		prs = append(prs, map[string]interface{}{
+			"poolRecord":   e.PoolRecord,
+			"notification": e.Notification,
+		})
 	}
+	// FIXME: shouldn't this call populate?
 	return nil
 }
 
 func resourceUltraDNSNotificationUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	email := d.Get("email").(string)
-	poolrecords := d.Get("poolRecords").(*schema.Set).List()
 
-	name := d.Get("ownerName").(string)
-	typ := d.Get("recordType").(string)
-	zone := d.Get("zoneName").(string)
+	n := newNotificationResource(d)
 
-	var prs []udnssdk.NotificationPoolRecord
-
-	for _, e := range poolrecords {
-		vv := e.(*schema.ResourceData)
-		prstr := vv.Get("poolrecord").(string)
-		notif := vv.Get("notification").(*schema.ResourceData)
-		nidto := udnssdk.NotificationInfoDTO{
-			Probe:     notif.Get("probe").(bool),
-			Record:    notif.Get("record").(bool),
-			Scheduled: notif.Get("scheduled").(bool),
-		}
-
-		pr := udnssdk.NotificationPoolRecord{
-			PoolRecord:   prstr,
-			Notification: nidto,
-		}
-		prs = append(prs, pr)
-
-	}
-
-	updateNotification := udnssdk.NotificationDTO{
-		Email:       email,
-		PoolRecords: prs,
-	}
-	log.Printf("[DEBUG] UltraDNS Notification update configuration: %#v", updateNotification)
-
-	k := udnssdk.NotificationKey{
-		Name:  name,
-		Type:  typ,
-		Zone:  zone,
-		Email: email,
-	}
-	_, err := client.Notifications.Update(k, updateNotification)
+	log.Printf("[INFO] UltraDNS Notification update configuration: %#v", n)
+	_, err := client.Notifications.Update(n.Key(), n.notificationDTO())
 	if err != nil {
-		return fmt.Errorf("[ERROR] Failed to create UltraDNS Notification: %s", err)
+		return fmt.Errorf("[ERROR] Failed to update UltraDNS Notification: %s", err)
 	}
-
-	log.Printf("[INFO] Notification ID: %s", d.Id())
-
-	log.Printf("[DEBUG] UltraDNS Notification update configuration: %#v", updateNotification)
 
 	return resourceUltraDNSNotificationRead(d, meta)
 }
 
 func resourceUltraDNSNotificationDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
-	zone := d.Get("zoneName").(string)
-	email := d.Get("email").(string)
-	name := d.Get("ownerName").(string)
-	typ := d.Get("type").(string)
 
-	k := udnssdk.NotificationKey{
-		Name:  name,
-		Type:  typ,
-		Zone:  zone,
-		Email: email,
-	}
-	log.Printf("[INFO] ultradns_notification delete: %#v", k)
-	_, err := client.Notifications.Delete(k)
+	n := newNotificationResource(d)
 
+	log.Printf("[INFO] ultradns_notification delete: %#v", n)
+	_, err := client.Notifications.Delete(n.Key())
 	if err != nil {
-		return fmt.Errorf("[ERROR] Error deleting UltraDNS Notification: %s", err)
+		return fmt.Errorf("ultradns_notification delete failed: %s", err)
 	}
 
 	return nil
+}
+
+type notificationResource struct {
+	Name        string
+	Zone        string
+	Email       string
+	PoolRecords []udnssdk.NotificationPoolRecord
+}
+
+func newNotificationResource(d *schema.ResourceData) notificationResource {
+	n := notificationResource{}
+	n.Zone = d.Get("zone").(string)
+	n.Name = d.Get("name").(string)
+	n.Email = d.Get("email").(string)
+
+	prs := d.Get("poolRecords").(*schema.Set).List()
+	for _, e := range prs {
+		rd := e.(*schema.ResourceData)
+		pr := newNotificationPoolRecord(rd)
+		n.PoolRecords = append(n.PoolRecords, pr)
+	}
+	return n
+}
+
+func (n notificationResource) Key() udnssdk.NotificationKey {
+	return udnssdk.NotificationKey{
+		Name:  n.Name,
+		Zone:  n.Zone,
+		Email: n.Email,
+	}
+}
+
+func (n notificationResource) RRSetKey() udnssdk.RRSetKey {
+	return n.Key().RRSetKey()
+}
+
+func (n notificationResource) notificationDTO() udnssdk.NotificationDTO {
+	return udnssdk.NotificationDTO{
+		Email:       n.Email,
+		PoolRecords: n.PoolRecords,
+	}
+}
+
+func newNotificationInfo(d *schema.ResourceData) udnssdk.NotificationInfoDTO {
+	info := udnssdk.NotificationInfoDTO{}
+	info.Probe = d.Get("probe").(bool)
+	info.Record = d.Get("record").(bool)
+	info.Scheduled = d.Get("scheduled").(bool)
+	return info
+}
+
+func newNotificationPoolRecord(d *schema.ResourceData) udnssdk.NotificationPoolRecord {
+	pr := udnssdk.NotificationPoolRecord{}
+	pr.PoolRecord = d.Get("poolrecord").(string)
+	n := d.Get("notification").(*schema.ResourceData)
+	pr.Notification = newNotificationInfo(n)
+	return pr
 }
