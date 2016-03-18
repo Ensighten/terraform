@@ -119,26 +119,25 @@ func populateResourceDataFromRRSet(r udnssdk.RRSet, d *schema.ResourceData) erro
 			d.Set("hostname", fmt.Sprintf("%s.%s", r.OwnerName, zone))
 		}
 	}
-
 	// *_profile
 	if r.Profile != nil {
 		d.Set("string_profile", r.Profile.Profile)
 		// TODO: use udnssdk.StringProfile.GetProfileObject()
-		var dp map[string]interface{}
-		err = json.Unmarshal([]byte(r.Profile.Profile), &dp)
+		var p map[string]interface{}
+		err = json.Unmarshal([]byte(r.Profile.Profile), &p)
 		if err != nil {
 			return err
 		}
 		c := r.Profile.Context()
 		switch c {
 		case udnssdk.DirPoolSchema:
-			d.Set("dirpool_profile", dp)
+			d.Set("dirpool_profile", p)
 		case udnssdk.RDPoolSchema:
-			d.Set("rdpool_profile", dp)
+			d.Set("rdpool_profile", p)
 		case udnssdk.SBPoolSchema:
-			d.Set("sbpool_profile", dp)
+			d.Set("sbpool_profile", p)
 		case udnssdk.TCPoolSchema:
-			d.Set("tcpool_profile", dp)
+			d.Set("tcpool_profile", p)
 		default:
 			return fmt.Errorf("ultradns_record profile has unknown type %s\n", c)
 		}
@@ -146,18 +145,39 @@ func populateResourceDataFromRRSet(r udnssdk.RRSet, d *schema.ResourceData) erro
 	return nil
 }
 
-func schemaSBPoolProfile() *schema.Schema {
+func schemaDirPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeMap,
 		Optional: true,
 		ConflictsWith: []string{
 			"string_profile",
-			"dirpool_profile",
 			"rdpool_profile",
+			"sbpool_profile",
 			"tcpool_profile",
+		},
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"description": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "RD Pool Profile created by Terraform",
+				},
+				"conflictResolve": &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "GEO",
+				},
+				"rdataInfo": &schema.Schema{
+					Type:     schema.TypeSet,
+					Optional: true,
+					Elem:     schemaDirPoolRDataInfo(),
+				},
+				"noResponse": schemaDirPoolRDataInfo(),
+			},
 		},
 	}
 }
+
 func schemaDirPoolRDataInfo() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeSet,
@@ -208,6 +228,7 @@ func schemaDirPoolGeoInfo() *schema.Schema {
 		},
 	}
 }
+
 func schemaDirPoolIPInfo() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeMap,
@@ -232,6 +253,7 @@ func schemaDirPoolIPInfo() *schema.Schema {
 		},
 	}
 }
+
 func schemaIPAddrDTO() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeMap,
@@ -263,14 +285,14 @@ func schemaIPAddrDTO() *schema.Schema {
 	}
 }
 
-func schemaDirPoolProfile() *schema.Schema {
+func schemaSBPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeMap,
 		Optional: true,
 		ConflictsWith: []string{
 			"string_profile",
+			"dirpool_profile",
 			"rdpool_profile",
-			"sbpool_profile",
 			"tcpool_profile",
 		},
 		Elem: &schema.Resource{
@@ -295,6 +317,7 @@ func schemaDirPoolProfile() *schema.Schema {
 		},
 	}
 }
+
 func schemaTCPoolProfile() *schema.Schema {
 	return &schema.Schema{
 		Type:     schema.TypeMap,
@@ -324,7 +347,7 @@ func schemaRDPoolProfile() *schema.Schema {
 				"@context": &schema.Schema{
 					Type:     schema.TypeString,
 					Optional: true,
-					Default:  "http://schemas.ultradns.com/RDPool.jsonschema",
+					Default:  udnssdk.RDPoolSchema,
 				},
 				"order": &schema.Schema{
 					Type:     schema.TypeString,
@@ -407,14 +430,14 @@ func resourceUltraDNSRecordCreate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	log.Printf("[INFO] ultradns_record create: %#v", r.RRSet())
+	log.Printf("[INFO] ultradns_record create: %+v", r)
 	_, err = client.RRSets.Create(r.RRSetKey(), r.RRSet())
 	if err != nil {
-		return fmt.Errorf("Failed to create UltraDNS RRSet: %s", err)
+		return fmt.Errorf("ultradns_record create failed: %v", err)
 	}
 
 	d.SetId(r.ID())
-	log.Printf("[INFO] ultradns_record.id: %s", d.Id())
+	log.Printf("[INFO] ultradns_record.id: %v", d.Id())
 
 	return resourceUltraDNSRecordRead(d, meta)
 }
@@ -437,10 +460,10 @@ func resourceUltraDNSRecordRead(d *schema.ResourceData, meta interface{}) error 
 					d.SetId("")
 					return nil
 				}
-				return fmt.Errorf("ultradns_record not found: %s", err)
+				return fmt.Errorf("ultradns_record not found: %v", err)
 			}
 		}
-		return fmt.Errorf("ultradns_record not found: %s", err)
+		return fmt.Errorf("ultradns_record not found: %v", err)
 	}
 	rec := rrsets[0]
 	return populateResourceDataFromRRSet(rec, d)
@@ -454,10 +477,10 @@ func resourceUltraDNSRecordUpdate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	log.Printf("[INFO] ultradns_record update: %#v", r.RRSet())
+	log.Printf("[INFO] ultradns_record update: %+v", r)
 	_, err = client.RRSets.Update(r.RRSetKey(), r.RRSet())
 	if err != nil {
-		return fmt.Errorf("ultradns_record update failed: %s", err)
+		return fmt.Errorf("ultradns_record update failed: %v", err)
 	}
 
 	return resourceUltraDNSRecordRead(d, meta)
@@ -471,10 +494,10 @@ func resourceUltraDNSRecordDelete(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	log.Printf("[INFO] ultradns_record delete: %#v", r.RRSet())
+	log.Printf("[INFO] ultradns_record delete: %+v", r)
 	_, err = client.RRSets.Delete(r.RRSetKey())
 	if err != nil {
-		return fmt.Errorf("ultradns_record delete failed: %s", err)
+		return fmt.Errorf("ultradns_record delete failed: %v", err)
 	}
 
 	return nil
