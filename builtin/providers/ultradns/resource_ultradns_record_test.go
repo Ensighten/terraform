@@ -2,7 +2,6 @@ package ultradns
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/Ensighten/udnssdk"
@@ -12,7 +11,8 @@ import (
 
 func TestAccUltraDNSRecord_Basic(t *testing.T) {
 	var record udnssdk.RRSet
-	domain := os.Getenv("ULTRADNS_DOMAIN")
+	// domain := os.Getenv("ULTRADNS_DOMAIN")
+	domain := "ultradns.phinze.com"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -38,7 +38,7 @@ func TestAccUltraDNSRecord_Basic(t *testing.T) {
 
 func TestAccUltraDNSRecord_Updated(t *testing.T) {
 	var record udnssdk.RRSet
-	domain := os.Getenv("ULTRADNS_DOMAIN")
+	domain := "ultradns.phinze.com"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -158,14 +158,6 @@ func testAccCheckUltraDNSRecordExists(n string, record *udnssdk.RRSet) resource.
 	}
 }
 
-const testProfile = `
-{
-  "@context": "http://schemas.ultradns.com/RDPool.jsonschema",
-  "order": "FIXED",
-  "description": "T. migratorius"
-}
-`
-
 const testAccCheckUltraDNSRecordConfigBasic = `
 resource "ultradns_record" "foobar" {
   zone = "%s"
@@ -190,7 +182,12 @@ resource "ultradns_record" "foobar" {
     order       = "FIXED"
     description = "Terraform Test Profile"
   }
-
-  #profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
+}
+`
+const testProfile = `
+{
+  "@context": "http://schemas.ultradns.com/RDPool.jsonschema",
+  "order": "FIXED",
+  "description": "Terraform Test Profile"
 }
 `
