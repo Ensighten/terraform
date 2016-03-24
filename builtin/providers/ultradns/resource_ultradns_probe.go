@@ -163,7 +163,6 @@ func resourceUltraDNSProbeRead(d *schema.ResourceData, meta interface{}) error {
 	return populateResourceDataFromProbe(probe, d)
 }
 
-
 func resourceUltraDNSProbeUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*udnssdk.Client)
 
