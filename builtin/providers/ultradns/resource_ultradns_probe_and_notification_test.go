@@ -162,15 +162,8 @@ resource "ultradns_record" "foobar" {
   type  = "A"
   ttl   = 3600
 
-  rdpool_profile {
-    order       = "FIXED"
-    description = "Terraform Test Profile"
-  }
-
-  profile = "{\"@context\": \"http://schemas.ultradns.com/RDPool.jsonschema\",\"order\": \"ROUND_ROBIN\",\"description\":\"T. migratorius\"}"
-
   tcpool_profile {
-    description = "This is a test TC Profile for Terraform Acceptance Tests"
+    description = "Test TC Profile for Terraform Acceptance Tests"
     runProbes   = true
     actOnProbes = true
     maxToLB     = 2
@@ -198,14 +191,15 @@ resource "ultradns_record" "foobar" {
 }
 
 resource "ultradns_probe" "ping" {
-  zoneName   = "%s"
-  ownerName  = "terraformprobetest"
-  ownerType  = "A"
-  type       = "PING"
-  interval   = "ONE_MINUTE"
+  zone       = "%s"
+  name       = "terraformprobetest"
   poolRecord = "192.168.0.11"
-  agents     = ["DALLAS", "AMSTERDAM"]
-  threshold  = 1
+
+  type   = "PING"
+  agents = ["DALLAS", "AMSTERDAM"]
+
+  interval  = "ONE_MINUTE"
+  threshold = 1
 
   ping_probe {
     packets    = 15
