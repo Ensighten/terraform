@@ -155,8 +155,7 @@ func (t *Tree) Load(s getter.Storage, mode GetMode) error {
 		}
 
 		// Get the directory where this module is so we can load it
-		key := strings.Join(path, ".")
-		key = "root." + key
+		key := filepath.ToSlash(source)
 		dir, ok, err := getStorage(s, key, source, mode)
 		if err != nil {
 			return err
