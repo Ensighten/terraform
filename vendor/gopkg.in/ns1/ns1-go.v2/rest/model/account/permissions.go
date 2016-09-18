@@ -1,31 +1,15 @@
-package nsone
-
-// User wraps an NS1 /account/users resource
-type User struct {
-	Name        string               `json:"name"`
-	Username    string               `json:"username"`
-	Notify      NotificationSettings `json:"notify"`
-	LastAccess  int                  `json:"last_access,omitempty"`
-	Email       string               `json:"email"`
-	Teams       []string             `json:"teams"`
-	Permissions PermissionsMap       `json:"permissions"`
-}
-
-// NotificationSettings wraps a User's "notify" attribute
-type NotificationSettings struct {
-	Billing bool `json:"billing"`
-}
+package account
 
 // PermissionsMap wraps a User's "permissions" attribute
 type PermissionsMap struct {
-	Dns        PermissionsDns        `json:"dns"`
+	DNS        PermissionsDNS        `json:"dns"`
 	Data       PermissionsData       `json:"data"`
 	Account    PermissionsAccount    `json:"account"`
 	Monitoring PermissionsMonitoring `json:"monitoring"`
 }
 
-// PermissionsDns wraps a User's "permissions.dns" attribute
-type PermissionsDns struct {
+// PermissionsDNS wraps a User's "permissions.dns" attribute
+type PermissionsDNS struct {
 	ViewZones           bool     `json:"view_zones"`
 	ManageZones         bool     `json:"manage_zones"`
 	ZonesAllowByDefault bool     `json:"zones_allow_by_default"`
