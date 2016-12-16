@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ func TestAccMonitoringJob_basic(t *testing.T) {
 				Config: testAccMonitoringJobBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckMonitoringJobState("name", "terraform test"),
-					testAccCheckMonitoringJobExists("nsone_monitoringjob.it", &mj),
+					testAccCheckMonitoringJobExists("ns1_monitoringjob.it", &mj),
 
 					testAccCheckMonitoringJobName(&mj, "terraform test"),
 					testAccCheckMonitoringJobActive(&mj, true),
@@ -52,7 +52,7 @@ func TestAccMonitoringJob_updated(t *testing.T) {
 				Config: testAccMonitoringJobBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckMonitoringJobState("name", "terraform test"),
-					testAccCheckMonitoringJobExists("nsone_monitoringjob.it", &mj),
+					testAccCheckMonitoringJobExists("ns1_monitoringjob.it", &mj),
 
 					testAccCheckMonitoringJobName(&mj, "terraform test"),
 					testAccCheckMonitoringJobActive(&mj, true),
@@ -70,7 +70,7 @@ func TestAccMonitoringJob_updated(t *testing.T) {
 				Config: testAccMonitoringJobUpdated,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckMonitoringJobState("name", "terraform test"),
-					testAccCheckMonitoringJobExists("nsone_monitoringjob.it", &mj),
+					testAccCheckMonitoringJobExists("ns1_monitoringjob.it", &mj),
 					testAccCheckMonitoringJobName(&mj, "terraform test"),
 					testAccCheckMonitoringJobActive(&mj, true),
 					testAccCheckMonitoringJobRegions(&mj, []string{"lga"}),
@@ -89,9 +89,9 @@ func TestAccMonitoringJob_updated(t *testing.T) {
 
 func testAccCheckMonitoringJobState(key, value string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["nsone_monitoringjob.it"]
+		rs, ok := s.RootModule().Resources["ns1_monitoringjob.it"]
 		if !ok {
-			return fmt.Errorf("Not found: %s", "nsone_monitoringjob.it")
+			return fmt.Errorf("Not found: %s", "ns1_monitoringjob.it")
 		}
 
 		if rs.Primary.ID == "" {
@@ -143,7 +143,7 @@ func testAccCheckMonitoringJobDestroy(s *terraform.State) error {
 	client := testAccProvider.Meta().(*nsone.Client)
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "nsone_monitoringjob" {
+		if rs.Type != "ns1_monitoringjob" {
 			continue
 		}
 
@@ -248,7 +248,7 @@ func testAccCheckMonitoringJobConfigHost(mj *monitor.Job, expected string) resou
 }
 
 const testAccMonitoringJobBasic = `
-resource "nsone_monitoringjob" "it" {
+resource "ns1_monitoringjob" "it" {
   job_type = "tcp"
   name     = "terraform test"
 
@@ -264,7 +264,7 @@ resource "nsone_monitoringjob" "it" {
 `
 
 const testAccMonitoringJobUpdated = `
-resource "nsone_monitoringjob" "it" {
+resource "ns1_monitoringjob" "it" {
   job_type = "tcp"
   name     = "terraform test"
 

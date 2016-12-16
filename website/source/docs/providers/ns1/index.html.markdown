@@ -18,12 +18,12 @@ Use the navigation to the left to read about the available resources.
 
 ```
 # Configure the NS1 provider
-provider "nsone" {
-    apikey = "${var.nsone_apikey}"
+provider "ns1" {
+    apikey = "${var.ns1_apikey}"
 }
 
 # Create a record
-resource "nsone_record" "www" {
+resource "ns1_record" "www" {
     ...
 }
 ```
@@ -32,4 +32,4 @@ resource "nsone_record" "www" {
 
 The following arguments are supported:
 
-* `apikey` - (Required) The NS1 API key. It must be provided, but it can also be sourced from the `NSONE_APIKEY` environment variable.
+* `apikey` - (Required) The NS1 API key. It must be provided, but it can also be sourced from the `NS1_APIKEY` environment variable.

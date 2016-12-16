@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func TestAccZone_basic(t *testing.T) {
 				Config: testAccZoneBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckZoneState("zone", "terraform-test-zone.io"),
-					testAccCheckZoneExists("nsone_zone.it", &zone),
+					testAccCheckZoneExists("ns1_zone.it", &zone),
 					testAccCheckZoneTTL(&zone, 3600),
 					testAccCheckZoneRefresh(&zone, 43200),
 					testAccCheckZoneRetry(&zone, 7200),
@@ -45,7 +45,7 @@ func TestAccZone_updated(t *testing.T) {
 				Config: testAccZoneBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckZoneState("zone", "terraform-test-zone.io"),
-					testAccCheckZoneExists("nsone_zone.it", &zone),
+					testAccCheckZoneExists("ns1_zone.it", &zone),
 					testAccCheckZoneTTL(&zone, 3600),
 					testAccCheckZoneRefresh(&zone, 43200),
 					testAccCheckZoneRetry(&zone, 7200),
@@ -57,7 +57,7 @@ func TestAccZone_updated(t *testing.T) {
 				Config: testAccZoneUpdated,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckZoneState("zone", "terraform-test-zone.io"),
-					testAccCheckZoneExists("nsone_zone.it", &zone),
+					testAccCheckZoneExists("ns1_zone.it", &zone),
 					testAccCheckZoneTTL(&zone, 10800),
 					testAccCheckZoneRefresh(&zone, 3600),
 					testAccCheckZoneRetry(&zone, 300),
@@ -71,9 +71,9 @@ func TestAccZone_updated(t *testing.T) {
 
 func testAccCheckZoneState(key, value string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["nsone_zone.it"]
+		rs, ok := s.RootModule().Resources["ns1_zone.it"]
 		if !ok {
-			return fmt.Errorf("Not found: %s", "nsone_zone.it")
+			return fmt.Errorf("Not found: %s", "ns1_zone.it")
 		}
 
 		if rs.Primary.ID == "" {
@@ -126,7 +126,7 @@ func testAccCheckZoneDestroy(s *terraform.State) error {
 	client := testAccProvider.Meta().(*nsone.Client)
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "nsone_zone" {
+		if rs.Type != "ns1_zone" {
 			continue
 		}
 
@@ -182,13 +182,13 @@ func testAccCheckZoneNxTTL(zone *dns.Zone, expected int) resource.TestCheckFunc 
 }
 
 const testAccZoneBasic = `
-resource "nsone_zone" "it" {
+resource "ns1_zone" "it" {
   zone = "terraform-test-zone.io"
 }
 `
 
 const testAccZoneUpdated = `
-resource "nsone_zone" "it" {
+resource "ns1_zone" "it" {
   zone    = "terraform-test-zone.io"
   ttl     = 10800
   refresh = 3600

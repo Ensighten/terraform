@@ -1,24 +1,24 @@
 ---
 description: 'Provides an NS1 monitoring job resource.'
 layout: nsone
-page_title: 'NS1: nsone_monitoringjob'
+page_title: 'NS1: ns1_monitoringjob'
 sidebar_current: 'docs-nsone-resource-monitoringjob'
 ---
 
-# nsone_monitoringjob
+# ns1\_monitoringjob
 
 NSONE's Monitoring jobs enable up/down monitoring of your different service endpoints, and can feed directly into DNS records to drive DNS failover.
 
 ## Example Usage
 
     # Add a minimal monitoring job
-    resource "nsone_monitoringjob" "foobar" {
-      zone = "${var.nsone_domain}"
+    resource "ns1_monitoringjob" "foobar" {
+      zone = "${var.ns1_domain}"
     }
 
     # Add a complete monitoring job
-    resource "nsone_monitoringjob" "foobar" {
-      zone        = "${var.nsone_domain}"
+    resource "ns1_monitoringjob" "foobar" {
+      zone        = "${var.ns1_domain}"
       ttl         = 10800
       refresh     = 3600
       retry       = 300

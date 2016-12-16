@@ -1,24 +1,24 @@
 ---
 description: 'Provides an NS1 zone resource.'
 layout: nsone
-page_title: 'NS1: nsone_zone'
+page_title: 'NS1: ns1_zone'
 sidebar_current: 'docs-nsone-resource-zone'
 ---
 
-# nsone\_zone
+# ns1\_zone
 
 Provides an NS1 zone resource.
 
 ## Example Usage
 
     # Add a minimal zone
-    resource "nsone_zone" "foobar" {
-      zone = "${var.nsone_domain}"
+    resource "ns1_zone" "foobar" {
+      zone = "${var.ns1_domain}"
     }
 
     # Add a complete zome
-    resource "nsone_zone" "foobar" {
-      zone        = "${var.nsone_domain}"
+    resource "ns1_zone" "foobar" {
+      zone        = "${var.ns1_domain}"
       ttl         = 10800
       refresh     = 3600
       retry       = 300

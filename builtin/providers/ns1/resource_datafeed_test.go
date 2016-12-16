@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func TestAccDataFeed_basic(t *testing.T) {
 				Config: testAccDataFeedBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataFeedState("name", "terraform test"),
-					testAccCheckDataFeedExists("nsone_datafeed.foobar", "nsone_datasource.api", &dataFeed),
+					testAccCheckDataFeedExists("ns1_datafeed.foobar", "ns1_datasource.api", &dataFeed),
 					testAccCheckDataFeedAttributes(&dataFeed),
 				),
 			},
@@ -41,7 +41,7 @@ func TestAccDataFeed_updated(t *testing.T) {
 				Config: testAccDataFeedBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataFeedState("name", "terraform test"),
-					testAccCheckDataFeedExists("nsone_datafeed.foobar", "nsone_datasource.api", &dataFeed),
+					testAccCheckDataFeedExists("ns1_datafeed.foobar", "ns1_datasource.api", &dataFeed),
 					testAccCheckDataFeedAttributes(&dataFeed),
 				),
 			},
@@ -49,7 +49,7 @@ func TestAccDataFeed_updated(t *testing.T) {
 				Config: testAccDataFeedUpdated,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataFeedState("name", "terraform test"),
-					testAccCheckDataFeedExists("nsone_datafeed.foobar", "nsone_datasource.api", &dataFeed),
+					testAccCheckDataFeedExists("ns1_datafeed.foobar", "ns1_datasource.api", &dataFeed),
 					testAccCheckDataFeedAttributesUpdated(&dataFeed),
 				),
 			},
@@ -59,9 +59,9 @@ func TestAccDataFeed_updated(t *testing.T) {
 
 func testAccCheckDataFeedState(key, value string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["nsone_datafeed.foobar"]
+		rs, ok := s.RootModule().Resources["ns1_datafeed.foobar"]
 		if !ok {
-			return fmt.Errorf("Not found: %s", "nsone_datafeed.foobar")
+			return fmt.Errorf("Not found: %s", "ns1_datafeed.foobar")
 		}
 
 		if rs.Primary.ID == "" {
@@ -123,11 +123,11 @@ func testAccCheckDataFeedDestroy(s *terraform.State) error {
 
 	for _, rs := range s.RootModule().Resources {
 
-		if rs.Type == "nsone_datasource" {
+		if rs.Type == "ns1_datasource" {
 			dataSourceID = rs.Primary.Attributes["id"]
 		}
 
-		if rs.Type == "nsone_datafeed" {
+		if rs.Type == "ns1_datafeed" {
 			dataFeedID = rs.Primary.Attributes["id"]
 		}
 	}
@@ -164,28 +164,28 @@ func testAccCheckDataFeedAttributesUpdated(dataFeed *data.Feed) resource.TestChe
 }
 
 const testAccDataFeedBasic = `
-resource "nsone_datasource" "api" {
+resource "ns1_datasource" "api" {
 	name = "terraform test"
-	sourcetype = "nsone_v1"
+	sourcetype = "ns1_v1"
 }
 
-resource "nsone_datafeed" "foobar" {
+resource "ns1_datafeed" "foobar" {
 	name = "terraform test"
-	source_id = "${nsone_datasource.api.id}"
+	source_id = "${ns1_datasource.api.id}"
 	config {
 		label = "exampledc2"
 	}
 }`
 
 const testAccDataFeedUpdated = `
-resource "nsone_datasource" "api" {
+resource "ns1_datasource" "api" {
 	name = "terraform test"
-	sourcetype = "nsone_v1"
+	sourcetype = "ns1_v1"
 }
 
-resource "nsone_datafeed" "foobar" {
+resource "ns1_datafeed" "foobar" {
 	name = "terraform test"
-	source_id = "${nsone_datasource.api.id}"
+	source_id = "${ns1_datasource.api.id}"
   config {
 		label = "exampledc3"
 	}

@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func TestAccDataSource_basic(t *testing.T) {
 				Config: testAccDataSourceBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceState("name", "terraform test"),
-					testAccCheckDataSourceExists("nsone_datasource.foobar", &dataSource),
+					testAccCheckDataSourceExists("ns1_datasource.foobar", &dataSource),
 					testAccCheckDataSourceAttributes(&dataSource),
 				),
 			},
@@ -41,7 +41,7 @@ func TestAccDataSource_updated(t *testing.T) {
 				Config: testAccDataSourceBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceState("name", "terraform test"),
-					testAccCheckDataSourceExists("nsone_datasource.foobar", &dataSource),
+					testAccCheckDataSourceExists("ns1_datasource.foobar", &dataSource),
 					testAccCheckDataSourceAttributes(&dataSource),
 				),
 			},
@@ -49,7 +49,7 @@ func TestAccDataSource_updated(t *testing.T) {
 				Config: testAccDataSourceUpdated,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckDataSourceState("name", "terraform test"),
-					testAccCheckDataSourceExists("nsone_datasource.foobar", &dataSource),
+					testAccCheckDataSourceExists("ns1_datasource.foobar", &dataSource),
 					testAccCheckDataSourceAttributesUpdated(&dataSource),
 				),
 			},
@@ -59,9 +59,9 @@ func TestAccDataSource_updated(t *testing.T) {
 
 func testAccCheckDataSourceState(key, value string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["nsone_datasource.foobar"]
+		rs, ok := s.RootModule().Resources["ns1_datasource.foobar"]
 		if !ok {
-			return fmt.Errorf("Not found: %s", "nsone_zone.foobar")
+			return fmt.Errorf("Not found: %s", "ns1_zone.foobar")
 		}
 
 		if rs.Primary.ID == "" {
@@ -114,7 +114,7 @@ func testAccCheckDataSourceDestroy(s *terraform.State) error {
 	client := testAccProvider.Meta().(*nsone.Client)
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "nsone_datasource" {
+		if rs.Type != "ns1_datasource" {
 			continue
 		}
 
@@ -131,7 +131,7 @@ func testAccCheckDataSourceDestroy(s *terraform.State) error {
 func testAccCheckDataSourceAttributes(dataSource *data.Source) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		if dataSource.Type != "nsone_v1" {
+		if dataSource.Type != "ns1_v1" {
 			return fmt.Errorf("Bad value : %s", dataSource.Type)
 		}
 
@@ -142,7 +142,7 @@ func testAccCheckDataSourceAttributes(dataSource *data.Source) resource.TestChec
 func testAccCheckDataSourceAttributesUpdated(dataSource *data.Source) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		if dataSource.Type != "nsone_monitoring" {
+		if dataSource.Type != "ns1_monitoring" {
 			return fmt.Errorf("Bad value : %s", dataSource.Type)
 		}
 
@@ -151,13 +151,13 @@ func testAccCheckDataSourceAttributesUpdated(dataSource *data.Source) resource.T
 }
 
 const testAccDataSourceBasic = `
-resource "nsone_datasource" "foobar" {
+resource "ns1_datasource" "foobar" {
 	name = "terraform test"
-	sourcetype = "nsone_v1"
+	sourcetype = "ns1_v1"
 }`
 
 const testAccDataSourceUpdated = `
-resource "nsone_datasource" "foobar" {
+resource "ns1_datasource" "foobar" {
 	name = "terraform test"
-	sourcetype = "nsone_monitoring"
+	sourcetype = "ns1_monitoring"
 }`

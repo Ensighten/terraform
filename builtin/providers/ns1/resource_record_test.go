@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ func TestAccRecord_basic(t *testing.T) {
 				Config: testAccRecordBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckRecordState("domain", "test.terraform-record-test.io"),
-					testAccCheckRecordExists("nsone_record.it", &record),
+					testAccCheckRecordExists("ns1_record.it", &record),
 					testAccCheckRecordTTL(&record, 60),
 					testAccCheckRecordRegionName(&record, []string{"cal"}),
 					testAccCheckRecordAnswerMetaWeight(&record, 10),
@@ -46,7 +46,7 @@ func TestAccRecord_updated(t *testing.T) {
 				Config: testAccRecordBasic,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckRecordState("domain", "test.terraform-record-test.io"),
-					testAccCheckRecordExists("nsone_record.it", &record),
+					testAccCheckRecordExists("ns1_record.it", &record),
 					testAccCheckRecordTTL(&record, 60),
 					testAccCheckRecordRegionName(&record, []string{"cal"}),
 					testAccCheckRecordAnswerMetaWeight(&record, 10),
@@ -57,7 +57,7 @@ func TestAccRecord_updated(t *testing.T) {
 				Config: testAccRecordUpdated,
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckRecordState("domain", "test.terraform-record-test.io"),
-					testAccCheckRecordExists("nsone_record.it", &record),
+					testAccCheckRecordExists("ns1_record.it", &record),
 					testAccCheckRecordTTL(&record, 120),
 					testAccCheckRecordRegionName(&record, []string{"ny", "wa"}),
 					testAccCheckRecordAnswerMetaWeight(&record, 5),
@@ -70,9 +70,9 @@ func TestAccRecord_updated(t *testing.T) {
 
 func testAccCheckRecordState(key, value string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["nsone_record.it"]
+		rs, ok := s.RootModule().Resources["ns1_record.it"]
 		if !ok {
-			return fmt.Errorf("Not found: nsone_record.it")
+			return fmt.Errorf("Not found: ns1_record.it")
 		}
 
 		if rs.Primary.ID == "" {
@@ -130,11 +130,11 @@ func testAccCheckRecordDestroy(s *terraform.State) error {
 	var recordType string
 
 	for _, rs := range s.RootModule().Resources {
-		if rs.Type != "nsone_record" {
+		if rs.Type != "ns1_record" {
 			continue
 		}
 
-		if rs.Type == "nsone_record" {
+		if rs.Type == "ns1_record" {
 			recordType = rs.Primary.Attributes["type"]
 			recordDomain = rs.Primary.Attributes["domain"]
 			recordZone = rs.Primary.Attributes["zone"]
@@ -201,8 +201,8 @@ func testAccCheckRecordAnswerRdata(r *dns.Record, expected string) resource.Test
 }
 
 const testAccRecordBasic = `
-resource "nsone_record" "it" {
-  zone              = "${nsone_zone.test.zone}"
+resource "ns1_record" "it" {
+  zone              = "${ns1_zone.test.zone}"
   domain            = "test.terraform-record-test.io"
   type              = "CNAME"
   ttl               = 60
@@ -236,14 +236,14 @@ resource "nsone_record" "it" {
   }
 }
 
-resource "nsone_zone" "test" {
+resource "ns1_zone" "test" {
   zone = "terraform-record-test.io"
 }
 `
 
 const testAccRecordUpdated = `
-resource "nsone_record" "it" {
-  zone              = "${nsone_zone.test.zone}"
+resource "ns1_record" "it" {
+  zone              = "${ns1_zone.test.zone}"
   domain            = "test.terraform-record-test.io"
   type              = "CNAME"
   ttl               = 120
@@ -283,7 +283,7 @@ resource "nsone_record" "it" {
   }
 }
 
-resource "nsone_zone" "test" {
+resource "ns1_zone" "test" {
   zone = "terraform-record-test.io"
 }
 `

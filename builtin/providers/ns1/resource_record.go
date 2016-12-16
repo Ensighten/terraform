@@ -1,4 +1,4 @@
-package nsone
+package ns1
 
 import (
 	"bytes"
@@ -257,7 +257,7 @@ func recordToResourceData(d *schema.ResourceData, r *dns.Record) error {
 		ans := &schema.Set{
 			F: answersToHash,
 		}
-		log.Printf("Got back from nsone answers: %+v", r.Answers)
+		log.Printf("Got back from nson1 answers: %+v", r.Answers)
 		for _, answer := range r.Answers {
 			ans.Add(answerToMap(*answer))
 		}
