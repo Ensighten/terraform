@@ -1,3 +1,7 @@
+## 0.6.16-ens.17 (2017-03-03)
+### Changed
+- vendor: update ensighten/udnssdk to 1.3.1
+
 ## 0.6.16-ens.16 (2017-02-28)
 ### Changed
 - vendor: update ensighten/udnssdk to 1.3.0
