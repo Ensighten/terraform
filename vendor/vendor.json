@@ -1,0 +1,15 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "mLeLV/nXuE0G7h3iJtdIvHqVCy0=",
+			"path": "github.com/Ensighten/udnssdk",
+			"revision": "50fc57a35b373285b4d46db88c19dc86d605724b",
+			"revisionTime": "2017-03-03T23:35:56Z",
+			"version": "v1.3.2",
+			"versionExact": "v1.3.2"
+		}
+	],
+	"rootPath": "github.com/Ensighten/terraform"
+}
