@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -126,9 +127,14 @@ func newStubClient(username, password, baseURL, clientID, clientSecret string) (
 // NewRequest creates an API request.
 // The path is expected to be a relative path and will be resolved
 // according to the BaseURL of the Client. Paths should always be specified without a preceding slash.
-func (c *Client) NewRequest(method, path string, payload interface{}) (*http.Request, error) {
+func (c *Client) NewRequest(method, pathquery string, payload interface{}) (*http.Request, error) {
 	url := *c.BaseURL
-	url.Path = url.Path + fmt.Sprintf("%s/%s", apiVersion, path)
+
+	pq := strings.SplitN(pathquery, "?", 2)
+	url.Path = url.Path + fmt.Sprintf("%s/%s", apiVersion, pq[0])
+	if len(pq) == 2 {
+		url.RawQuery = pq[1]
+	}
 
 	body := new(bytes.Buffer)
 	if payload != nil {
@@ -294,5 +300,5 @@ func CheckResponse(r *http.Response) error {
 		return &ErrorResponseList{Response: r, Responses: ers}
 	}
 
-	return fmt.Errorf("Response had non-successful status: %d, but could not extract error from body: %+v", r.StatusCode, body)
+	return fmt.Errorf("Response had non-successful Status: %#v, but could not extract any errors from Body: %#v", r.Status, string(body))
 }
