@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/Ensighten/udnssdk"
+	"github.com/terra-farm/udnssdk"
 	"github.com/fatih/structs"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"

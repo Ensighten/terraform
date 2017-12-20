@@ -3,7 +3,7 @@ package ultradns
 import (
 	"fmt"
 
-	"github.com/Ensighten/udnssdk"
+	"github.com/terra-farm/udnssdk"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )

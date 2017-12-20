@@ -1,8 +1,8 @@
 package nsone
 
 import (
-	"github.com/ns1/ns1-go"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/ns1/ns1-go"
 )
 
 func dataFeedResource() *schema.Resource {

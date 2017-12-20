@@ -1,9 +1,9 @@
 package nsone
 
 import (
-	"github.com/ns1/ns1-go"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/ns1/ns1-go"
 )
 
 // Provider returns a terraform.ResourceProvider.
