@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/terra-farm/udnssdk"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terra-farm/udnssdk"
 )
 
 // Conversion helper functions

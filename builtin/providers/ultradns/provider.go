@@ -1,9 +1,9 @@
 package ultradns
 
 import (
-	"github.com/terra-farm/udnssdk"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"github.com/terra-farm/udnssdk"
 )
 
 // Provider returns a terraform.ResourceProvider.
