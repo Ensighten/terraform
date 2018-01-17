@@ -203,7 +203,7 @@
 		{
 			"ImportPath": "github.com/terra-farm/udnssdk",
 			"Comment": "v1.3.4",
-			"Rev": "a48c4c06d0a4ccbc8bf1f2ff327e7a414a72e33f"
+			"Rev": "80e8384a78c1817002cfdd9e71896b782c0866e6"
 		},
 		{
 			"ImportPath": "github.com/ajg/form",
@@ -1482,7 +1482,7 @@
 		{
 			"ImportPath": "github.com/terra-farm/udnssdk/password",
 			"Comment": "v1.3.4",
-			"Rev": "a48c4c06d0a4ccbc8bf1f2ff327e7a414a72e33f"
+			"Rev": "80e8384a78c1817002cfdd9e71896b782c0866e6"
 		}
 	]
 }
