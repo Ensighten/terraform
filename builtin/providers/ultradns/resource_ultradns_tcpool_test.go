@@ -8,6 +8,68 @@ import (
 	"github.com/terra-farm/udnssdk"
 )
 
+func Test_hashRdataTcpool(t *testing.T) {
+	var d map[string]interface{}
+	var h int
+
+	// Test Defaults
+	d = map[string]interface{}{
+		"host":           "10.6.0.1",
+		"failover_delay": 0,
+		"priority":       1,
+		"run_probes":     true,
+		"state":          "NORMAL",
+		"threshold":      1,
+		"weight":         2,
+	}
+	h = hashRdataTcpool(d)
+	if 1055516612 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":           "10.6.1.1",
+		"failover_delay": 30,
+		"priority":       1,
+		"run_probes":     true,
+		"state":          "ACTIVE",
+		"threshold":      1,
+		"weight":         2,
+	}
+	h = hashRdataTcpool(d)
+	if 1955736539 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":           "10.6.1.2",
+		"failover_delay": 30,
+		"priority":       2,
+		"run_probes":     true,
+		"state":          "INACTIVE",
+		"threshold":      1,
+		"weight":         4,
+	}
+	h = hashRdataTcpool(d)
+	if 4060587008 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":           "10.6.1.3",
+		"failover_delay": 30,
+		"priority":       3,
+		"run_probes":     false,
+		"state":          "NORMAL",
+		"threshold":      1,
+		"weight":         8,
+	}
+	h = hashRdataTcpool(d)
+	if 4068102602 != h {
+		t.Fatalf("failed: %t", h)
+	}
+}
+
 func TestAccUltradnsTcpool(t *testing.T) {
 	var record udnssdk.RRSet
 	domain := "ultradns.phinze.com"
@@ -26,19 +88,19 @@ func TestAccUltradnsTcpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "name", "test-tcpool-minimal"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "ttl", "300"),
 
-					// hashRdatas(): 10.6.0.1 -> 2847814707
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.host", "10.6.0.1"),
+					// hashRdataTcpool(): 10.6.0.1-0-1-true-NORMAL-1-2- -> 1055516612
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.host", "10.6.0.1"),
 					// Defaults
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "act_on_probes", "true"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "description", "Minimal TC Pool"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "max_to_lb", "0"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "run_probes", "true"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.failover_delay", "0"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.priority", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.run_probes", "true"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.state", "NORMAL"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.threshold", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2847814707.weight", "2"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.failover_delay", "0"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.priority", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.run_probes", "true"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.state", "NORMAL"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.threshold", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1055516612.weight", "2"),
 					// Generated
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "id", "test-tcpool-minimal.ultradns.phinze.com"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "hostname", "test-tcpool-minimal.ultradns.phinze.com."),
@@ -58,32 +120,32 @@ func TestAccUltradnsTcpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "max_to_lb", "2"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "run_probes", "false"),
 
-					// hashRdatas(): 10.6.1.1 -> 2826722820
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.host", "10.6.1.1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.failover_delay", "30"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.priority", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.run_probes", "true"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.state", "ACTIVE"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.threshold", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.2826722820.weight", "2"),
+					// hashRdataTcpool(): 10.6.1.1-30-1-true-ACTIVE-1-2- -> 1955736539
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.host", "10.6.1.1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.failover_delay", "30"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.priority", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.run_probes", "true"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.state", "ACTIVE"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.threshold", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1955736539.weight", "2"),
 
-					// hashRdatas(): 10.6.1.2 -> 829755326
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.host", "10.6.1.2"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.failover_delay", "30"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.priority", "2"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.run_probes", "true"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.state", "INACTIVE"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.threshold", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.829755326.weight", "4"),
+					// 10.6.1.2-30-2-true-INACTIVE-1-4- -> 4060587008
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.host", "10.6.1.2"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.failover_delay", "30"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.priority", "2"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.run_probes", "true"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.state", "INACTIVE"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.threshold", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4060587008.weight", "4"),
 
-					// hashRdatas(): 10.6.1.3 -> 1181892392
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.host", "10.6.1.3"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.failover_delay", "30"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.priority", "3"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.run_probes", "false"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.state", "NORMAL"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.threshold", "1"),
-					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.1181892392.weight", "8"),
+					// hashRdataTcpool(): 10.6.1.3-30-3-false-NORMAL-1-8- -> 4068102602
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.host", "10.6.1.3"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.failover_delay", "30"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.priority", "3"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.run_probes", "false"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.state", "NORMAL"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.threshold", "1"),
+					resource.TestCheckResourceAttr("ultradns_tcpool.it", "rdata.4068102602.weight", "8"),
 					// Generated
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "id", "test-tcpool-maximal.ultradns.phinze.com"),
 					resource.TestCheckResourceAttr("ultradns_tcpool.it", "hostname", "test-tcpool-maximal.ultradns.phinze.com."),

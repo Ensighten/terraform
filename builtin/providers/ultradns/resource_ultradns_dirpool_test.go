@@ -95,7 +95,7 @@ func TestAccUltradnsDirpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "type", "A"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "ttl", "300"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "description", "Minimal directional pool"),
-					// hashRdatas(): 10.1.0.1 -> 463398947
+					// hashRdataDirpool(): 10.1.0.1-true- -> 478925311
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.478925311.host", "10.1.0.1"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.478925311.all_non_configured", "true"),
 					// Generated
@@ -115,13 +115,13 @@ func TestAccUltradnsDirpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "description", "Description of pool"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "conflict_resolve", "GEO"),
 
-					// hashRdatas(): 10.1.1.1 -> 442270228
+					// hashRdataDirpool(): 10.1.1.1-true- -> 200328636
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.200328636.host", "10.1.1.1"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.200328636.all_non_configured", "true"),
-					// hashRdatas(): 10.1.1.2 -> 2203440046
+					// hashRdataDirpool(): 10.1.1.2-false-North America-false-US-DC,US-MA,US-OK, -> 740247500
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.740247500.host", "10.1.1.2"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.740247500.geo_info.0.name", "North America"),
-					// hashRdatas(): 10.1.1.3 -> 4099072824
+					// hashRdataDirpool(): 10.1.1.3-false-some Ips-false-200.20.0.1-200.20.0.10-20.20.20.0/24-50.60.70.80- -> 1918680333
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.1918680333.host", "10.1.1.3"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.1918680333.ip_info.0.name", "some Ips"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "no_response.0.geo_info.0.name", "nrGeo"),
