@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/fatih/structs"
@@ -609,4 +610,63 @@ func mapEncode(rawVal interface{}) map[string]interface{} {
 	s := structs.New(rawVal)
 	s.TagName = "terraform"
 	return s.Map()
+}
+
+// hashRdataDirpool generates a hashcode for an Rdata block from dirpools
+func hashRdataDirpool(v interface{}) int {
+	var buf bytes.Buffer
+	m := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
+	buf.WriteString(fmt.Sprintf("%t-", m["all_non_configured"].(bool)))
+
+	// We need to make sure to sort the strings below so that we always
+	// generate the same hash code no matter what is in the set.
+	geoInfo := m["geo_info"].([]interface{})
+	if len(geoInfo) >= 1 {
+		g := geoInfo[0].(map[string]interface{})
+		buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
+		buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
+
+		rawCodes := g["codes"].(*schema.Set).List()
+		if len(rawCodes) >= 1 {
+			codes := make([]string, 0, len(rawCodes))
+			for _, i := range rawCodes {
+				codes = append(codes, i.(string))
+			}
+			sort.Strings(codes)
+			for _, c := range codes {
+				buf.WriteString(fmt.Sprintf("%s-", c))
+			}
+		}
+	}
+
+	ipInfo := m["ip_info"].([]interface{})
+	if len(ipInfo) >= 1 {
+		i := ipInfo[0].(map[string]interface{})
+		buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
+		buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
+
+		ips := i["ips"].(*schema.Set).List()
+		if len(ips) >= 1 {
+			sort.Slice(ips, func(i, j int) bool {
+				l := ips[i].(map[string]interface{})
+				r := ips[j].(map[string]interface{})
+				return l["start"].(string) < r["start"].(string) &&
+					l["end"].(string) < r["end"].(string) &&
+					l["cidr"].(string) < r["cidr"].(string) &&
+					l["address"].(string) < r["address"].(string)
+			})
+			for _, p := range ips {
+				ip := p.(map[string]interface{})
+				buf.WriteString(fmt.Sprintf("%s-", ip["start"].(string)))
+				buf.WriteString(fmt.Sprintf("%s-", ip["end"].(string)))
+				buf.WriteString(fmt.Sprintf("%s-", ip["cidr"].(string)))
+				buf.WriteString(fmt.Sprintf("%s-", ip["address"].(string)))
+			}
+		}
+	}
+
+	h := hashcode.String(buf.String())
+	log.Printf("[DEBUG] hashRdataDirpool(): %v -> %v", buf.String(), h)
+	return h
 }

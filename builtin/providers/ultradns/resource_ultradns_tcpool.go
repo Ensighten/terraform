@@ -1,10 +1,12 @@
 package ultradns
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terra-farm/udnssdk"
 )
@@ -328,4 +330,20 @@ func makeSetFromRdata(rds []string, rdis []udnssdk.SBRDataInfo) *schema.Set {
 		s.Add(r)
 	}
 	return s
+}
+
+// hashRdataTcpool generates a hashcode for an Rdata block from tcpools
+func hashRdataTcpool(v interface{}) int {
+	var buf bytes.Buffer
+	m := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["failover_delay"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
+	buf.WriteString(fmt.Sprintf("%t-", m["run_probes"].(bool)))
+	buf.WriteString(fmt.Sprintf("%s-", m["state"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["threshold"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
+	h := hashcode.String(buf.String())
+	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", buf.String(), h)
+	return h
 }

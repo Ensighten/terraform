@@ -1,7 +1,6 @@
 package ultradns
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 
@@ -188,32 +187,4 @@ func makeSetFromStrings(ss []string) *schema.Set {
 		st.Add(s)
 	}
 	return st
-}
-
-// hashRdataTcpool generates a hashcode for an Rdata block from tcpools
-func hashRdataTcpool(v interface{}) int {
-	var buf bytes.Buffer
-	m := v.(map[string]interface{})
-	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
-	buf.WriteString(fmt.Sprintf("%d-", m["failover_delay"].(int)))
-	buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
-	buf.WriteString(fmt.Sprintf("%t-", m["run_probes"].(bool)))
-	buf.WriteString(fmt.Sprintf("%s-", m["state"].(string)))
-	buf.WriteString(fmt.Sprintf("%d-", m["threshold"].(int)))
-	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
-	h := hashcode.String(buf.String())
-	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", buf.String(), h)
-	return h
-}
-
-// hashRdataDirpool generates a hashcode for an Rdata block from dirpools
-func hashRdataDirpool(v interface{}) int {
-	var buf bytes.Buffer
-	m := v.(map[string]interface{})
-	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
-	buf.WriteString(fmt.Sprintf("%t-", m["all_non_configured"].(bool)))
-
-	h := hashcode.String(buf.String())
-	log.Printf("[DEBUG] hashRdataDirpool(): %v -> %v", buf.String(), h)
-	return h
 }
