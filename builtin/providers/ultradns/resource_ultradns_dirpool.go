@@ -621,48 +621,18 @@ func hashRdataDirpool(v interface{}) int {
 
 	// We need to make sure to sort the strings below so that we always
 	// generate the same hash code no matter what is in the set.
-	geoInfo := m["geo_info"].([]interface{})
-	if len(geoInfo) >= 1 {
-		g := geoInfo[0].(map[string]interface{})
-		buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
-		buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
-
-		rawCodes := g["codes"].(*schema.Set).List()
-		if len(rawCodes) >= 1 {
-			codes := make([]string, 0, len(rawCodes))
-			for _, i := range rawCodes {
-				codes = append(codes, i.(string))
-			}
-			sort.Strings(codes)
-			for _, c := range codes {
-				buf.WriteString(fmt.Sprintf("%s-", c))
-			}
+	if v, ok := m["geo_info"]; ok {
+		vm := v.(map[string]interface{})
+		vs := vm["codes"].(*schema.Set).List()
+		cs := make([]string, len(vs))
+		for i, raw := range vs {
+			cs[i] = raw.(string)
 		}
-	}
-
-	ipInfo := m["ip_info"].([]interface{})
-	if len(ipInfo) >= 1 {
-		i := ipInfo[0].(map[string]interface{})
-		buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
-		buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
-
-		ips := i["ips"].(*schema.Set).List()
-		if len(ips) >= 1 {
-			sort.Slice(ips, func(i, j int) bool {
-				l := ips[i].(map[string]interface{})
-				r := ips[j].(map[string]interface{})
-				return l["start"].(string) < r["start"].(string) &&
-					l["end"].(string) < r["end"].(string) &&
-					l["cidr"].(string) < r["cidr"].(string) &&
-					l["address"].(string) < r["address"].(string)
-			})
-			for _, p := range ips {
-				ip := p.(map[string]interface{})
-				buf.WriteString(fmt.Sprintf("%s-", ip["start"].(string)))
-				buf.WriteString(fmt.Sprintf("%s-", ip["end"].(string)))
-				buf.WriteString(fmt.Sprintf("%s-", ip["cidr"].(string)))
-				buf.WriteString(fmt.Sprintf("%s-", ip["address"].(string)))
-			}
+		sort.Strings(cs)
+		buf.WriteString(fmt.Sprintf("%s-", vm["name"].(string)))
+		buf.WriteString(fmt.Sprintf("%t-", vm["is_account_level"].(bool)))
+		for _, v := range cs {
+			buf.WriteString(fmt.Sprintf("%s,", v))
 		}
 	}
 
