@@ -189,10 +189,18 @@ func makeSetFromStrings(ss []string) *schema.Set {
 	return st
 }
 
-// hashRdata generates a hashcode for an Rdata block
-func hashRdatas(v interface{}) int {
+// hashRdataTcpool generates a hashcode for an Rdata block from tcpools
+func hashRdataTcpool(v interface{}) int {
+	var buf bytes.Buffer
 	m := v.(map[string]interface{})
-	h := hashcode.String(m["host"].(string))
-	log.Printf("[DEBUG] hashRdatas(): %v -> %v", m["host"].(string), h)
+	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["failover_delay"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
+	buf.WriteString(fmt.Sprintf("%t-", m["run_probes"].(bool)))
+	buf.WriteString(fmt.Sprintf("%s-", m["state"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["threshold"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
+	h := hashcode.String(buf.String())
+	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", buf.String(), h)
 	return h
 }

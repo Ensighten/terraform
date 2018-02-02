@@ -35,7 +35,7 @@ func resourceUltradnsTcpool() *schema.Resource {
 			},
 			"rdata": &schema.Schema{
 				Type:     schema.TypeSet,
-				Set:      hashRdatas,
+				Set:      hashRdataTcpool,
 				Required: true,
 				// Valid: len(rdataInfo) == len(rdata)
 				Elem: &schema.Resource{
