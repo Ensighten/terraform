@@ -45,7 +45,7 @@ func resourceUltradnsDirpool() *schema.Resource {
 			},
 			"rdata": &schema.Schema{
 				Type:     schema.TypeSet,
-				Set:      hashRdatas,
+				Set:      hashRdataDirpool,
 				Required: true,
 				// Valid: len(rdataInfo) == len(rdata)
 				Elem: &schema.Resource{
@@ -517,7 +517,7 @@ func zipDirpoolRData(rds []string, rdis []udnssdk.DPRDataInfo) []map[string]inte
 // makeSetFromDirpoolRdata encodes an array of Rdata into a
 // *schema.Set in the appropriate structure for the schema
 func makeSetFromDirpoolRdata(rds []string, rdis []udnssdk.DPRDataInfo) *schema.Set {
-	s := &schema.Set{F: hashRdatas}
+	s := &schema.Set{F: hashRdataDirpool}
 	rs := zipDirpoolRData(rds, rdis)
 	for _, r := range rs {
 		s.Add(r)

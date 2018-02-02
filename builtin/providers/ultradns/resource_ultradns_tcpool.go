@@ -322,7 +322,7 @@ func zipRData(rds []string, rdis []udnssdk.SBRDataInfo) []map[string]interface{}
 // makeSetFromRdatas encodes an array of Rdata into a
 // *schema.Set in the appropriate structure for the schema
 func makeSetFromRdata(rds []string, rdis []udnssdk.SBRDataInfo) *schema.Set {
-	s := &schema.Set{F: hashRdatas}
+	s := &schema.Set{F: hashRdataTcpool}
 	rs := zipRData(rds, rdis)
 	for _, r := range rs {
 		s.Add(r)
