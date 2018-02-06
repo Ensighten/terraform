@@ -41,7 +41,7 @@ func Test_hashRdataDirpool(t *testing.T) {
 				"is_account_level": false,
 				"codes":            schema.NewSet(schema.HashString, []interface{}{"US-OK", "US-DC", "US-MA"}),
 			},
-	  },
+		},
 	}
 	h = hashRdataDirpool(d)
 	if 740247500 != h {
@@ -57,11 +57,11 @@ func Test_hashRdataDirpool(t *testing.T) {
 				"is_account_level": false,
 				"ips": schema.NewSet(hashIPInfoIPs, []interface{}{
 					map[string]interface{}{
-						"start":   "200.20.0.1",
-						"end":     "200.20.0.10",
+						"start": "200.20.0.1",
+						"end":   "200.20.0.10",
 					},
 					map[string]interface{}{
-						"cidr":    "20.20.20.0/24",
+						"cidr": "20.20.20.0/24",
 					},
 					map[string]interface{}{
 						"address": "50.60.70.80",

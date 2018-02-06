@@ -567,10 +567,18 @@ func mapFromGeoInfos(gi *udnssdk.GeoInfo) []map[string]interface{} {
 func hashIPInfoIPs(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
-	if m["start"] != nil { buf.WriteString(fmt.Sprintf("%s-", m["start"].(string))) }
-	if m["end"] != nil { buf.WriteString(fmt.Sprintf("%s-", m["end"].(string))) }
-	if m["cidr"] != nil { buf.WriteString(fmt.Sprintf("%s-", m["cidr"].(string))) }
-	if m["address"] != nil { buf.WriteString(fmt.Sprintf("%s", m["address"].(string))) }
+	if m["start"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["start"].(string)))
+	}
+	if m["end"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["end"].(string)))
+	}
+	if m["cidr"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["cidr"].(string)))
+	}
+	if m["address"] != nil {
+		buf.WriteString(fmt.Sprintf("%s", m["address"].(string)))
+	}
 
 	h := hashcode.String(buf.String())
 	log.Printf("[DEBUG] hashIPInfoIPs(): %v -> %v", buf.String(), h)
@@ -620,34 +628,48 @@ func hashRdataDirpool(v interface{}) int {
 	buf.WriteString(fmt.Sprintf("%t-", m["all_non_configured"].(bool)))
 
 	if geoInfo, ok := m["geo_info"]; ok { //}.([]interface{})
+		log.Printf("[DEBUG] geoInfo format: %+v\n", geoInfo)
 		gi := geoInfo.([]interface{})
-		g := gi[0].(map[string]interface{})
-		buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
-		buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
+		if len(gi) >= 1 {
+			g := gi[0].(map[string]interface{})
+			buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
+			buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
 
-		codes := g["codes"].(*schema.Set).List()
-		if len(codes) >= 1 {
-			sort.Slice(codes, func(i, j int) bool { return codes[i].(string) < codes[j].(string) })
-			for _, c := range codes {
-				buf.WriteString(fmt.Sprintf("%s,", c))
+			codes := g["codes"].(*schema.Set).List()
+			if len(codes) >= 1 {
+				sort.Slice(codes, func(i, j int) bool { return codes[i].(string) < codes[j].(string) })
+				for _, c := range codes {
+					buf.WriteString(fmt.Sprintf("%s,", c))
+				}
 			}
 		}
 	}
 
 	if ipInfo, ok := m["ip_info"]; ok { //}.([]interface{})
+		log.Printf("[DEBUG] ipInfo format: %+v\n", geoInfo)
 		ii := ipInfo.([]interface{})
-		i := ii[0].(map[string]interface{})
-		buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
-		buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
+		if len(ii) >= 1 {
+			i := ii[0].(map[string]interface{})
+			buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
+			buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
 
-		ips := i["ips"].(*schema.Set).List()
-		if len(ips) >= 1 {
-			for _, p := range ips {
-				ip := p.(map[string]interface{})
-				if ip["start"] != nil { buf.WriteString(fmt.Sprintf("%s-", ip["start"].(string))) }
-				if ip["end"] != nil { buf.WriteString(fmt.Sprintf("%s-", ip["end"].(string))) }
-				if ip["cidr"] != nil { buf.WriteString(fmt.Sprintf("%s-", ip["cidr"].(string))) }
-				if ip["address"] != nil { buf.WriteString(fmt.Sprintf("%s-", ip["address"].(string))) }
+			ips := i["ips"].(*schema.Set).List()
+			if len(ips) >= 1 {
+				for _, p := range ips {
+					ip := p.(map[string]interface{})
+					if ip["start"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["start"].(string)))
+					}
+					if ip["end"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["end"].(string)))
+					}
+					if ip["cidr"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["cidr"].(string)))
+					}
+					if ip["address"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["address"].(string)))
+					}
+				}
 			}
 		}
 	}
