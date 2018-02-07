@@ -646,7 +646,7 @@ func hashRdataDirpool(v interface{}) int {
 	}
 
 	if ipInfo, ok := m["ip_info"]; ok { //}.([]interface{})
-		log.Printf("[DEBUG] ipInfo format: %+v\n", geoInfo)
+		log.Printf("[DEBUG] ipInfo format: %+v\n", ipInfo)
 		ii := ipInfo.([]interface{})
 		if len(ii) >= 1 {
 			i := ii[0].(map[string]interface{})
