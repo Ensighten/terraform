@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -627,11 +628,19 @@ func hashRdataDirpool(v interface{}) int {
 	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
 	buf.WriteString(fmt.Sprintf("%t-", m["all_non_configured"].(bool)))
 
-	if geoInfo, ok := m["geo_info"]; ok { //}.([]interface{})
-		log.Printf("[DEBUG] geoInfo format: %+v\n", geoInfo)
-		gi := geoInfo.([]interface{})
-		if len(gi) >= 1 {
-			g := gi[0].(map[string]interface{})
+	if geoInfo, ok := m["geo_info"]; ok {
+		var g map[string]interface{}
+		switch geoInfo := geoInfo.(type) {
+		case []interface{}:
+			if len(geoInfo) >= 1 {
+				g = geoInfo[0].(map[string]interface{})
+			}
+		case []map[string]interface{}:
+			if len(geoInfo) >= 1 {
+				g = geoInfo[0]
+			}
+		}
+		if g != nil {
 			buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
 			buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
 
@@ -646,10 +655,18 @@ func hashRdataDirpool(v interface{}) int {
 	}
 
 	if ipInfo, ok := m["ip_info"]; ok { //}.([]interface{})
-		log.Printf("[DEBUG] ipInfo format: %+v\n", ipInfo)
-		ii := ipInfo.([]interface{})
-		if len(ii) >= 1 {
-			i := ii[0].(map[string]interface{})
+		var i map[string]interface{}
+		switch ipInfo := ipInfo.(type) {
+		case []interface{}:
+			if len(ipInfo) >= 1 {
+				i = ipInfo[0].(map[string]interface{})
+			}
+		case []map[string]interface{}:
+			if len(ipInfo) >= 1 {
+				i = ipInfo[0]
+			}
+		}
+		if i != nil {
 			buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
 			buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
 
