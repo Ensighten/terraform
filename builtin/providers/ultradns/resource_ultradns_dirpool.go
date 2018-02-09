@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/fatih/structs"
@@ -45,7 +46,7 @@ func resourceUltradnsDirpool() *schema.Resource {
 			},
 			"rdata": &schema.Schema{
 				Type:     schema.TypeSet,
-				Set:      hashRdatas,
+				Set:      hashRdataDirpool,
 				Required: true,
 				// Valid: len(rdataInfo) == len(rdata)
 				Elem: &schema.Resource{
@@ -517,7 +518,7 @@ func zipDirpoolRData(rds []string, rdis []udnssdk.DPRDataInfo) []map[string]inte
 // makeSetFromDirpoolRdata encodes an array of Rdata into a
 // *schema.Set in the appropriate structure for the schema
 func makeSetFromDirpoolRdata(rds []string, rdis []udnssdk.DPRDataInfo) *schema.Set {
-	s := &schema.Set{F: hashRdatas}
+	s := &schema.Set{F: hashRdataDirpool}
 	rs := zipDirpoolRData(rds, rdis)
 	for _, r := range rs {
 		s.Add(r)
@@ -566,10 +567,18 @@ func mapFromGeoInfos(gi *udnssdk.GeoInfo) []map[string]interface{} {
 func hashIPInfoIPs(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
-	buf.WriteString(fmt.Sprintf("%s-", m["start"].(string)))
-	buf.WriteString(fmt.Sprintf("%s-", m["end"].(string)))
-	buf.WriteString(fmt.Sprintf("%s-", m["cidr"].(string)))
-	buf.WriteString(fmt.Sprintf("%s", m["address"].(string)))
+	if m["start"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["start"].(string)))
+	}
+	if m["end"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["end"].(string)))
+	}
+	if m["cidr"] != nil {
+		buf.WriteString(fmt.Sprintf("%s-", m["cidr"].(string)))
+	}
+	if m["address"] != nil {
+		buf.WriteString(fmt.Sprintf("%s", m["address"].(string)))
+	}
 
 	h := hashcode.String(buf.String())
 	log.Printf("[DEBUG] hashIPInfoIPs(): %v -> %v", buf.String(), h)
@@ -609,4 +618,80 @@ func mapEncode(rawVal interface{}) map[string]interface{} {
 	s := structs.New(rawVal)
 	s.TagName = "terraform"
 	return s.Map()
+}
+
+// hashRdataDirpool generates a hashcode for an Rdata block from dirpools
+func hashRdataDirpool(v interface{}) int {
+	var buf bytes.Buffer
+	m := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
+	buf.WriteString(fmt.Sprintf("%t-", m["all_non_configured"].(bool)))
+
+	if geoInfo, ok := m["geo_info"]; ok {
+		var g map[string]interface{}
+		switch geoInfo := geoInfo.(type) {
+		case []interface{}:
+			if len(geoInfo) >= 1 {
+				g = geoInfo[0].(map[string]interface{})
+			}
+		case []map[string]interface{}:
+			if len(geoInfo) >= 1 {
+				g = geoInfo[0]
+			}
+		}
+		if g != nil {
+			buf.WriteString(fmt.Sprintf("%s-", g["name"].(string)))
+			buf.WriteString(fmt.Sprintf("%t-", g["is_account_level"].(bool)))
+
+			codes := g["codes"].(*schema.Set).List()
+			if len(codes) >= 1 {
+				sort.Slice(codes, func(i, j int) bool { return codes[i].(string) < codes[j].(string) })
+				for _, c := range codes {
+					buf.WriteString(fmt.Sprintf("%s,", c))
+				}
+			}
+		}
+	}
+
+	if ipInfo, ok := m["ip_info"]; ok {
+		var i map[string]interface{}
+		switch ipInfo := ipInfo.(type) {
+		case []interface{}:
+			if len(ipInfo) >= 1 {
+				i = ipInfo[0].(map[string]interface{})
+			}
+		case []map[string]interface{}:
+			if len(ipInfo) >= 1 {
+				i = ipInfo[0]
+			}
+		}
+		if i != nil {
+			buf.WriteString(fmt.Sprintf("%s-", i["name"].(string)))
+			buf.WriteString(fmt.Sprintf("%t-", i["is_account_level"].(bool)))
+
+			ips := i["ips"].(*schema.Set).List()
+			if len(ips) >= 1 {
+				for _, p := range ips {
+					ip := p.(map[string]interface{})
+					if ip["start"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["start"].(string)))
+					}
+					if ip["end"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["end"].(string)))
+					}
+					if ip["cidr"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["cidr"].(string)))
+					}
+					if ip["address"] != nil {
+						buf.WriteString(fmt.Sprintf("%s-", ip["address"].(string)))
+					}
+				}
+			}
+		}
+	}
+
+	s := buf.String()
+	h := hashcode.String(s)
+	log.Printf("[DEBUG] hashRdataDirpool(): %v -> %v", s, h)
+	return h
 }

@@ -1,10 +1,12 @@
 package ultradns
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/terra-farm/udnssdk"
 )
@@ -35,7 +37,7 @@ func resourceUltradnsTcpool() *schema.Resource {
 			},
 			"rdata": &schema.Schema{
 				Type:     schema.TypeSet,
-				Set:      hashRdatas,
+				Set:      hashRdataTcpool,
 				Required: true,
 				// Valid: len(rdataInfo) == len(rdata)
 				Elem: &schema.Resource{
@@ -322,10 +324,27 @@ func zipRData(rds []string, rdis []udnssdk.SBRDataInfo) []map[string]interface{}
 // makeSetFromRdatas encodes an array of Rdata into a
 // *schema.Set in the appropriate structure for the schema
 func makeSetFromRdata(rds []string, rdis []udnssdk.SBRDataInfo) *schema.Set {
-	s := &schema.Set{F: hashRdatas}
+	s := &schema.Set{F: hashRdataTcpool}
 	rs := zipRData(rds, rdis)
 	for _, r := range rs {
 		s.Add(r)
 	}
 	return s
+}
+
+// hashRdataTcpool generates a hashcode for an Rdata block from tcpools
+func hashRdataTcpool(v interface{}) int {
+	var buf bytes.Buffer
+	m := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", m["host"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["failover_delay"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["priority"].(int)))
+	buf.WriteString(fmt.Sprintf("%t-", m["run_probes"].(bool)))
+	buf.WriteString(fmt.Sprintf("%s-", m["state"].(string)))
+	buf.WriteString(fmt.Sprintf("%d-", m["threshold"].(int)))
+	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
+	s := buf.String()
+	h := hashcode.String(s)
+	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", s, h)
+	return h
 }

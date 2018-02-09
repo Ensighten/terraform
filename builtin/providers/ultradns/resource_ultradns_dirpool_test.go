@@ -5,9 +5,76 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform/helper/resource"
+	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"github.com/terra-farm/udnssdk"
 )
+
+func Test_hashRdataDirpool(t *testing.T) {
+	var d map[string]interface{}
+	var h int
+
+	d = map[string]interface{}{
+		"host":               "10.1.0.1",
+		"all_non_configured": true,
+	}
+	h = hashRdataDirpool(d)
+	if 478925311 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":               "10.1.1.1",
+		"all_non_configured": true,
+	}
+	h = hashRdataDirpool(d)
+	if 200328636 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":               "10.1.1.2",
+		"all_non_configured": false,
+		"geo_info": []interface{}{
+			map[string]interface{}{
+				"name":             "North America",
+				"is_account_level": false,
+				"codes":            schema.NewSet(schema.HashString, []interface{}{"US-OK", "US-DC", "US-MA"}),
+			},
+		},
+	}
+	h = hashRdataDirpool(d)
+	if 740247500 != h {
+		t.Fatalf("failed: %t", h)
+	}
+
+	d = map[string]interface{}{
+		"host":               "10.1.1.3",
+		"all_non_configured": false,
+		"ip_info": []interface{}{
+			map[string]interface{}{
+				"name":             "some Ips",
+				"is_account_level": false,
+				"ips": schema.NewSet(hashIPInfoIPs, []interface{}{
+					map[string]interface{}{
+						"start": "200.20.0.1",
+						"end":   "200.20.0.10",
+					},
+					map[string]interface{}{
+						"cidr": "20.20.20.0/24",
+					},
+					map[string]interface{}{
+						"address": "50.60.70.80",
+					},
+				}),
+			},
+		},
+	}
+	h = hashRdataDirpool(d)
+	if 1918680333 != h {
+		t.Fatalf("failed: %t", h)
+	}
+}
 
 func TestAccUltradnsDirpool(t *testing.T) {
 	var record udnssdk.RRSet
@@ -28,9 +95,9 @@ func TestAccUltradnsDirpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "type", "A"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "ttl", "300"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "description", "Minimal directional pool"),
-					// hashRdatas(): 10.1.0.1 -> 463398947
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.463398947.host", "10.1.0.1"),
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.463398947.all_non_configured", "true"),
+					// hashRdataDirpool(): 10.1.0.1-true- -> 478925311
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.478925311.host", "10.1.0.1"),
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.478925311.all_non_configured", "true"),
 					// Generated
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "id", "test-dirpool-minimal.ultradns.phinze.com"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "hostname", "test-dirpool-minimal.ultradns.phinze.com."),
@@ -48,15 +115,15 @@ func TestAccUltradnsDirpool(t *testing.T) {
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "description", "Description of pool"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "conflict_resolve", "GEO"),
 
-					// hashRdatas(): 10.1.1.1 -> 442270228
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.442270228.host", "10.1.1.1"),
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.442270228.all_non_configured", "true"),
-					// hashRdatas(): 10.1.1.2 -> 2203440046
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.2203440046.host", "10.1.1.2"),
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.2203440046.geo_info.0.name", "North America"),
-					// hashRdatas(): 10.1.1.3 -> 4099072824
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.4099072824.host", "10.1.1.3"),
-					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.4099072824.ip_info.0.name", "some Ips"),
+					// hashRdataDirpool(): 10.1.1.1-true- -> 200328636
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.200328636.host", "10.1.1.1"),
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.200328636.all_non_configured", "true"),
+					// hashRdataDirpool(): 10.1.1.2-false-North America-false-US-DC,US-MA,US-OK, -> 740247500
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.740247500.host", "10.1.1.2"),
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.740247500.geo_info.0.name", "North America"),
+					// hashRdataDirpool(): 10.1.1.3-false-some Ips-false-200.20.0.1-200.20.0.10-20.20.20.0/24-50.60.70.80- -> 1918680333
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.1918680333.host", "10.1.1.3"),
+					resource.TestCheckResourceAttr("ultradns_dirpool.it", "rdata.1918680333.ip_info.0.name", "some Ips"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "no_response.0.geo_info.0.name", "nrGeo"),
 					resource.TestCheckResourceAttr("ultradns_dirpool.it", "no_response.0.ip_info.0.name", "nrIP"),
 					// Generated
@@ -159,12 +226,12 @@ resource "ultradns_dirpool" "it" {
 
 #   rdata {
 #     host = "10.1.1.4"
-# 
+#
 #     geo_info {
 #       name             = "accountGeoGroup"
 #       is_account_level = true
 #     }
-# 
+#
 #     ip_info {
 #       name             = "accountIPGroup"
 #       is_account_level = true
