@@ -653,7 +653,7 @@ func hashRdataDirpool(v interface{}) int {
 		}
 	}
 
-	if ipInfo, ok := m["ip_info"]; ok { //}.([]interface{})
+	if ipInfo, ok := m["ip_info"]; ok {
 		var i map[string]interface{}
 		switch ipInfo := ipInfo.(type) {
 		case []interface{}:
@@ -690,7 +690,8 @@ func hashRdataDirpool(v interface{}) int {
 		}
 	}
 
-	h := hashcode.String(buf.String())
-	log.Printf("[DEBUG] hashRdataDirpool(): %v -> %v", buf.String(), h)
+	s := buf.String()
+	h := hashcode.String(s)
+	log.Printf("[DEBUG] hashRdataDirpool(): %v -> %v", s, h)
 	return h
 }

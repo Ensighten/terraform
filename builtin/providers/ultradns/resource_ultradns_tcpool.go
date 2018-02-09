@@ -343,7 +343,8 @@ func hashRdataTcpool(v interface{}) int {
 	buf.WriteString(fmt.Sprintf("%s-", m["state"].(string)))
 	buf.WriteString(fmt.Sprintf("%d-", m["threshold"].(int)))
 	buf.WriteString(fmt.Sprintf("%d-", m["weight"].(int)))
-	h := hashcode.String(buf.String())
-	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", buf.String(), h)
+	s := buf.String()
+	h := hashcode.String(s)
+	log.Printf("[DEBUG] hashRdataTcpool(): %v -> %v", s, h)
 	return h
 }
